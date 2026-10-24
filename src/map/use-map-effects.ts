@@ -463,6 +463,12 @@ export function useFeatureInteraction(mapRef: MapRef, ready: boolean): void {
 
     const onClick = (e: maplibregl.MapMouseEvent) => {
       const hits = map.queryRenderedFeatures(e.point);
+      // The live transport layer owns its vehicle inspector. Do not select a
+      // building underneath the same click, regardless of listener ordering.
+      if (hits.some((feature) => feature.source === "live-transit")) {
+        setSelection(null);
+        return;
+      }
       // Prefer a real footprint over the coarse horizon massing that shares
       // its geometry; the massing hit is still worth something out where no
       // detailed tile exists.

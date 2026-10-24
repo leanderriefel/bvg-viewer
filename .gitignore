@@ -29,3 +29,6 @@ coverage/
 .DS_Store
 __unconfig*
 todos.json
+
+# Live transit snapshots and rolling history
+/.data/transit/

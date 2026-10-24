@@ -5,6 +5,8 @@ import { DEFAULT_CAMERA } from "@/lib/geo";
 import { MapContext } from "@/map/map-context";
 import type { FlyTarget, MapApi } from "@/map/map-context";
 import { useMapStore } from "@/map/store";
+import { useTransitFeed } from "@/map/transit/use-transit-feed";
+import { useTransitLayer } from "@/map/transit/use-transit-layer";
 import {
   useCameraSync,
   useFeatureInteraction,
@@ -52,6 +54,8 @@ export function MapCanvas({ children }: Props) {
   usePerfCounters(mapRef);
   useFeatureInteraction(mapRef, ready);
   useSearchMarker(mapRef);
+  useTransitFeed();
+  useTransitLayer(map, ready);
 
   const flyTo = useCallback((t: FlyTarget) => {
     const instance = mapRef.current;
