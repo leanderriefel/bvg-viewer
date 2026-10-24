@@ -1,0 +1,5 @@
+* text=auto eol=lf
+*.pbf binary
+*.pmtiles binary
+*.gz binary
+*.zip binary

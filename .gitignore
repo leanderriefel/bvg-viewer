@@ -1,0 +1,31 @@
+# Dependencies, build output, and tool caches
+node_modules/
+dist/
+dist-ssr/
+.nitro/
+.tanstack/
+.wrangler/
+.output/
+.vinxi/
+.vite/
+.cache/
+coverage/
+*.tsbuildinfo
+
+# Secrets and machine-local overrides
+.env
+.env.*
+!.env.example
+*.local
+*.log
+
+# Downloaded map sources and generated assets
+/data/
+/public/tiles/*.pmtiles
+/public/maplibre/
+
+# Generated hook dispatcher and local metadata
+/.vite-hooks/_/
+.DS_Store
+__unconfig*
+todos.json
