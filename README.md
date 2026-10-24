@@ -12,6 +12,7 @@ Then open <http://localhost:3000>.
 ## What's in it
 
 - **3D and 2D.** A pitched perspective view with extruded buildings, and a flat top-down mode that reads like a street map. The toggle keeps your position.
+- **Navigation.** Drag with the left mouse button to pan. Hold the right button and drag horizontally to rotate consistently across the map, or vertically to tilt.
 - **Five themes.** Daylight, Midnight, Vivid (buildings coloured by height), Blueprint and Slate. Switching re-paints without re-downloading a single tile, and the UI chrome follows the map's light/dark scheme.
 - **Search.** `⌘K` / `Ctrl+K` (or `/`). Curated Berlin places resolve on the keystroke with no network at all; anything address-shaped goes to Photon, which indexes OSM down to the house number.
 - **Places menu.** ~70 destinations, each with a hand-picked camera angle — a park gets a high gentle view, a tower gets looked up at.
@@ -68,7 +69,7 @@ Buildings only exist in OpenMapTiles from z13 up: z13 holds merged massing polyg
 | `vp check` | Check formatting and lint rules |
 | `vp check --fix` | Format and apply safe lint fixes |
 | `vp run typecheck` | TypeScript compiler checks (`tsc --noEmit`) |
-| `vp test run` | Building visibility regression tests across rendering presets |
+| `vp test run` | Building visibility, tile detail and mouse navigation regression tests |
 | `vp run generate-routes` | Regenerate the TanStack route tree |
 
 Vite+ uses Bun to install dependencies and keeps `bun.lock` as the lockfile. All lint and format settings live in `vite.config.ts`, where Ultracite supplies the presets and Vite+ runs Oxlint and Oxfmt. The editor and pre-commit hook use the same configuration.

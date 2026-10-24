@@ -24,6 +24,7 @@ const MAX_MERCATOR_HORIZON_ANGLE = 89.25;
 
 /** Match MapLibre's variable-zoom cutoff, then ease into its LOD over 12°. */
 const MAX_CONSTANT_ZOOM_PITCH = 60;
+const VARIABLE_ZOOM_PITCH_OFFSET = 78.5;
 const LOD_TRANSITION_DEGREES = 12;
 
 const toRad = (deg: number) => (deg * Math.PI) / 180;
@@ -142,7 +143,7 @@ export function tileZoomFor(
       Math.acos(Math.min(1, height / centerDistance)) * (180 / Math.PI);
     const startPitch = Math.min(
       MAX_CONSTANT_ZOOM_PITCH,
-      Math.max(0, 78.5 - verticalFov / 2)
+      Math.max(0, VARIABLE_ZOOM_PITCH_OFFSET - verticalFov / 2)
     );
     const progress = Math.max(
       0,
