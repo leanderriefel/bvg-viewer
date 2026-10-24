@@ -1,5 +1,6 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { createJSONStorage, persist } from "zustand/middleware";
+import type { PersistOptions } from "zustand/middleware";
 
 import { DEFAULT_CAMERA } from "@/lib/geo";
 import type { LngLat } from "@/lib/geo";
@@ -63,15 +64,86 @@ interface MapState {
   setLoadedTiles: (n: number) => void;
 }
 
+type MapSettings = Pick<
+  MapState,
+  | "palette"
+  | "quality"
+  | "showHousenumbers"
+  | "showPois"
+  | "showStreetNames"
+  | "view"
+>;
+
+const DEFAULT_SETTINGS: MapSettings = {
+  palette: "daylight",
+  quality: "balanced",
+  showHousenumbers: true,
+  showPois: true,
+  showStreetNames: true,
+  view: "perspective",
+};
+
+function selectSettings(state: MapState): MapSettings {
+  return {
+    palette: state.palette,
+    quality: state.quality,
+    showHousenumbers: state.showHousenumbers,
+    showPois: state.showPois,
+    showStreetNames: state.showStreetNames,
+    view: state.view,
+  };
+}
+
+function settingsEqual(previous: MapSettings, next: MapSettings): boolean {
+  return (
+    previous.palette === next.palette &&
+    previous.quality === next.quality &&
+    previous.showHousenumbers === next.showHousenumbers &&
+    previous.showPois === next.showPois &&
+    previous.showStreetNames === next.showStreetNames &&
+    previous.view === next.view
+  );
+}
+
+function createSettingsPersistence() {
+  const storage = createJSONStorage<MapSettings>(() => window.localStorage);
+  let previousSettings = DEFAULT_SETTINGS;
+
+  return {
+    name: "berlin3d.settings",
+    onRehydrateStorage: () => (state?: MapState) => {
+      if (state) {
+        previousSettings = selectSettings(state);
+      }
+    },
+    // The camera lives in the URL hash instead, so a shared link beats a
+    // stale localStorage entry and two tabs do not fight over position.
+    partialize: selectSettings,
+    storage: storage && {
+      ...storage,
+      setItem: (name, value) => {
+        // Zustand persists every set, even when partialize returns the same
+        // preferences. Compare before JSON serialization and synchronous IO;
+        // render counters and camera updates must never pay those costs.
+        if (settingsEqual(previousSettings, value.state)) {
+          return;
+        }
+        const result = storage.setItem(name, value);
+        previousSettings = value.state;
+        return result;
+      },
+    },
+  } satisfies PersistOptions<MapState, MapSettings>;
+}
+
 export const useMapStore = create<MapState>()(
   persist(
     (set, get) => ({
+      ...DEFAULT_SETTINGS,
       camera: { ...DEFAULT_CAMERA, center: [...DEFAULT_CAMERA.center] },
       fps: 0,
       loadedTiles: 0,
       marker: null,
-      palette: "daylight",
-      quality: "balanced",
       selection: null,
       setCamera: (camera) => set({ camera }),
       setFps: (fps) => set({ fps }),
@@ -83,27 +155,11 @@ export const useMapStore = create<MapState>()(
       setSelection: (selection) => set({ selection }),
       setTileSource: (tileSource) => set({ tileSource }),
       setView: (view) => set({ view }),
-      showHousenumbers: true,
-      showPois: true,
-      showStreetNames: true,
       tileSource: null,
       toggleView: () =>
         set({ view: get().view === "perspective" ? "flat" : "perspective" }),
-      view: "perspective",
     }),
-    {
-      name: "berlin3d.settings",
-      // The camera lives in the URL hash instead, so a shared link beats a
-      // stale localStorage entry and two tabs do not fight over position.
-      partialize: (s) => ({
-        palette: s.palette,
-        quality: s.quality,
-        showHousenumbers: s.showHousenumbers,
-        showPois: s.showPois,
-        showStreetNames: s.showStreetNames,
-        view: s.view,
-      }),
-    }
+    createSettingsPersistence()
   )
 );
 

@@ -56,6 +56,18 @@ export function createCalculateTileZoom(
   maxZoomLevelsOnScreen: number,
   tileCountMaxMinRatio = 3
 ): CalculateTileZoom {
+  // MapLibre calls this once per candidate tile, but these terms only change
+  // with the camera. Retain just the latest camera so panning does not grow a
+  // cache, and compare with Object.is to preserve NaN and signed-zero inputs.
+  let previousFov: number | undefined;
+  let previousHeight: number | undefined;
+  let previousCenterDistance: number | undefined;
+  let pitchTileLoadingBehavior = 0;
+  let halfFov = 0;
+  let fovDistanceAdjustment = 0;
+  let tileCountPitch0 = 0;
+  let tileCountZoomAdjustment = 0;
+
   return (
     requestedCenterZoom,
     distanceToTile2D,
@@ -63,52 +75,57 @@ export function createCalculateTileZoom(
     distanceToCenter3D,
     cameraVerticalFOV
   ) => {
-    const pitchTileLoadingBehavior =
-      2 *
-      ((maxZoomLevelsOnScreen - 1) /
-        scaleZoom(
-          Math.cos(toRad(MAX_MERCATOR_HORIZON_ANGLE - cameraVerticalFOV)) /
-            Math.cos(toRad(MAX_MERCATOR_HORIZON_ANGLE))
-        ) -
-        1);
+    const fovChanged = !Object.is(previousFov, cameraVerticalFOV);
+    if (fovChanged) {
+      previousFov = cameraVerticalFOV;
+      halfFov = toRad(cameraVerticalFOV / 2);
+      fovDistanceAdjustment = Math.max(0.5, Math.cos(halfFov));
+      pitchTileLoadingBehavior =
+        2 *
+        ((maxZoomLevelsOnScreen - 1) /
+          scaleZoom(
+            Math.cos(toRad(MAX_MERCATOR_HORIZON_ANGLE - cameraVerticalFOV)) /
+              Math.cos(toRad(MAX_MERCATOR_HORIZON_ANGLE))
+          ) -
+          1);
 
-    const centerPitch = Math.acos(distanceToTileZ / distanceToCenter3D);
-    const tileCountPitch0 =
-      2 *
-      integralOfCosXByP(
-        pitchTileLoadingBehavior - 1,
-        0,
-        toRad(cameraVerticalFOV / 2)
+      tileCountPitch0 =
+        2 * integralOfCosXByP(pitchTileLoadingBehavior - 1, 0, halfFov);
+    }
+
+    if (
+      fovChanged ||
+      !Object.is(previousHeight, distanceToTileZ) ||
+      !Object.is(previousCenterDistance, distanceToCenter3D)
+    ) {
+      previousHeight = distanceToTileZ;
+      previousCenterDistance = distanceToCenter3D;
+      const centerPitch = Math.acos(distanceToTileZ / distanceToCenter3D);
+      const highestPitch = Math.min(
+        toRad(MAX_MERCATOR_HORIZON_ANGLE),
+        centerPitch + halfFov
       );
-
-    const highestPitch = Math.min(
-      toRad(MAX_MERCATOR_HORIZON_ANGLE),
-      centerPitch + toRad(cameraVerticalFOV / 2)
-    );
-    const lowestPitch = Math.min(
-      highestPitch,
-      centerPitch - toRad(cameraVerticalFOV / 2)
-    );
-    const tileCount = integralOfCosXByP(
-      pitchTileLoadingBehavior - 1,
-      lowestPitch,
-      highestPitch
-    );
+      const lowestPitch = Math.min(highestPitch, centerPitch - halfFov);
+      const tileCount = integralOfCosXByP(
+        pitchTileLoadingBehavior - 1,
+        lowestPitch,
+        highestPitch
+      );
+      tileCountZoomAdjustment =
+        scaleZoom(
+          Math.max(1, tileCount / tileCountPitch0 / tileCountMaxMinRatio)
+        ) / 2;
+    }
 
     const thisTilePitch = Math.atan(distanceToTile2D / distanceToTileZ);
     const distanceToTile3D = Math.hypot(distanceToTile2D, distanceToTileZ);
 
     let z = requestedCenterZoom;
     z += scaleZoom(
-      distanceToCenter3D /
-        distanceToTile3D /
-        Math.max(0.5, Math.cos(toRad(cameraVerticalFOV / 2)))
+      distanceToCenter3D / distanceToTile3D / fovDistanceAdjustment
     );
     z += (pitchTileLoadingBehavior * scaleZoom(Math.cos(thisTilePitch))) / 2;
-    z -=
-      scaleZoom(
-        Math.max(1, tileCount / tileCountPitch0 / tileCountMaxMinRatio)
-      ) / 2;
+    z -= tileCountZoomAdjustment;
 
     return z;
   };
@@ -135,26 +152,51 @@ export function tileZoomFor(
   // detail in smaller steps, which reads as gradual decay instead of visible
   // rings where whole tiles change level at once.
   const calculateZoom = createCalculateTileZoom(LOD_BY_QUALITY[quality], 4.5);
+  let previousHeight: number | undefined;
+  let previousCenterDistance: number | undefined;
+  let previousFov: number | undefined;
+  let blend = 0;
 
-  return (...zoomArgs) => {
-    const [requestedCenterZoom, , height, centerDistance, verticalFov] =
-      zoomArgs;
-    const pitch =
-      Math.acos(Math.min(1, height / centerDistance)) * (180 / Math.PI);
-    const startPitch = Math.min(
-      MAX_CONSTANT_ZOOM_PITCH,
-      Math.max(0, VARIABLE_ZOOM_PITCH_OFFSET - verticalFov / 2)
-    );
-    const progress = Math.max(
-      0,
-      Math.min(1, (pitch - startPitch) / LOD_TRANSITION_DEGREES)
-    );
-    const blend = progress * progress * (3 - 2 * progress);
+  return (
+    requestedCenterZoom,
+    distanceToTile2D,
+    height,
+    centerDistance,
+    verticalFov
+  ) => {
+    if (
+      !Object.is(previousHeight, height) ||
+      !Object.is(previousCenterDistance, centerDistance) ||
+      !Object.is(previousFov, verticalFov)
+    ) {
+      previousHeight = height;
+      previousCenterDistance = centerDistance;
+      previousFov = verticalFov;
+      const pitch =
+        Math.acos(Math.min(1, height / centerDistance)) * (180 / Math.PI);
+      const startPitch = Math.min(
+        MAX_CONSTANT_ZOOM_PITCH,
+        Math.max(0, VARIABLE_ZOOM_PITCH_OFFSET - verticalFov / 2)
+      );
+      const progress = Math.max(
+        0,
+        Math.min(1, (pitch - startPitch) / LOD_TRANSITION_DEGREES)
+      );
+      blend = progress * progress * (3 - 2 * progress);
+    }
     // MapLibre switches from uniform to variable tile zoom at about 60°.
     // Applying the full falloff immediately replaces whole regions at once.
     const desiredZoom =
       requestedCenterZoom +
-      (calculateZoom(...zoomArgs) - requestedCenterZoom) * blend;
+      (calculateZoom(
+        requestedCenterZoom,
+        distanceToTile2D,
+        height,
+        centerDistance,
+        verticalFov
+      ) -
+        requestedCenterZoom) *
+        blend;
 
     // Coarse OpenMapTiles tiles contain no buildings. Keep their source above
     // that cutoff, without forcing city detail into zoomed-out views.

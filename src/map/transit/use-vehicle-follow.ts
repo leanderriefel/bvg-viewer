@@ -17,6 +17,11 @@ export function useVehicleFollow(
 ): void {
   useEffect(() => {
     if (!(map && ready)) {
+      if (map) {
+        // Destination preparation deliberately owns the camera while covered.
+        // Do not reacquire an old vehicle when navigation reveals its result.
+        useTransitStore.getState().stopFollowing();
+      }
       return;
     }
 

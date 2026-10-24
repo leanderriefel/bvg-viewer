@@ -1,7 +1,7 @@
 /**
  * Caches map data so a second visit costs almost nothing.
  *
- * Deliberately narrow: only glyphs, sprites and vector tiles are intercepted.
+ * Deliberately narrow: only glyphs and vector tiles are intercepted.
  * HTML, JS and CSS are left entirely to the browser and the dev server, because
  * a service worker that caches app code is the classic way to ship a build
  * nobody can update.
@@ -13,15 +13,19 @@
  * cache handles them correctly, and the archive is served immutable.
  */
 
-const VERSION = "v1";
+const VERSION = "v2";
 const TILE_CACHE = `berlin3d-tiles-${VERSION}`;
 const ASSET_CACHE = `berlin3d-assets-${VERSION}`;
 
-/** Rough ceilings, enforced by trimming oldest-first after each write. */
+/** Rough ceilings; batches can temporarily exceed them by a few dozen tiles. */
 const LIMITS = {
   [TILE_CACHE]: 3000,
   [ASSET_CACHE]: 200,
 };
+const TRIM_BATCH_SIZE = 64;
+const maintenance = new Map();
+const pendingWrites = new Map();
+const HOSTED_TILE_PATH = /^\/planet\/[^/]+\/\d+\/\d+\/\d+(?:\.(?:pbf|mvt))?$/u;
 
 self.addEventListener("install", (event) => {
   // Glyphs are needed for the very first label drawn, and there are only a
@@ -76,21 +80,66 @@ async function trim(cacheName) {
   );
 }
 
+function scheduleTrim(cacheName) {
+  let state = maintenance.get(cacheName);
+  if (!state) {
+    state = { writes: 0, task: Promise.resolve() };
+    maintenance.set(cacheName, state);
+  }
+  state.writes += 1;
+  // Scan once after worker startup, then once per batch, never per tile. Chain
+  // scans so a burst cannot enumerate/delete the same oldest entries in parallel.
+  if (state.writes === 1 || state.writes % TRIM_BATCH_SIZE === 0) {
+    state.task = state.task
+      .then(() => trim(cacheName))
+      .catch(() => {
+        // Quota limits or unavailable storage must not affect the map.
+      });
+  }
+  return state.task;
+}
+
+function persist(cache, cacheName, request, response) {
+  const key = `${cacheName}:${request.url}`;
+  const pending = pendingWrites.get(key);
+  if (pending) {
+    return pending;
+  }
+  const task = (async () => {
+    try {
+      await cache.put(request, response.clone());
+      await scheduleTrim(cacheName);
+    } catch {
+      // Persistence is best effort. A successful fetch must never be retried
+      // just because storage is full, disabled, or was cleared during the write.
+    } finally {
+      pendingWrites.delete(key);
+    }
+  })();
+  pendingWrites.set(key, task);
+  return task;
+}
+
 async function cacheFirst(request, cacheName) {
-  const cache = await caches.open(cacheName);
-  const hit = await cache.match(request);
-  if (hit) {
-    return hit;
+  let cache;
+  try {
+    cache = await caches.open(cacheName);
+    const hit = await cache.match(request);
+    if (hit) {
+      return { response: hit };
+    }
+  } catch {
+    // Private browsing and storage failures still permit a normal network load.
   }
 
   const response = await fetch(request);
   // Opaque responses have status 0 and are useless to re-serve deliberately,
   // but cross-origin tiles send CORS headers so we get real ones.
-  if (response.ok) {
-    await cache.put(request, response.clone());
-    trim(cacheName);
-  }
-  return response;
+  const persistence =
+    cache && response.ok && response.status !== 206
+      ? persist(cache, cacheName, request, response)
+      : undefined;
+  return { response, persistence };
 }
 
 function classify(url, request) {
@@ -103,15 +152,26 @@ function classify(url, request) {
     return null;
   }
 
-  if (
-    url.pathname.startsWith("/fonts/") ||
-    url.pathname.startsWith("/maplibre/")
-  ) {
-    return ASSET_CACHE;
+  if (url.origin === self.location.origin) {
+    // MapLibre worker modules have stable filenames and change with upgrades.
+    // They are application code and must use normal browser HTTP revalidation.
+    if (url.pathname.startsWith("/maplibre/")) {
+      return null;
+    }
+    if (url.pathname.startsWith("/fonts/") && url.pathname.endsWith(".pbf")) {
+      return ASSET_CACHE;
+    }
+    if (url.pathname.endsWith(".pbf") || url.pathname.endsWith(".mvt")) {
+      return TILE_CACHE;
+    }
   }
 
-  // Vector tiles, local or from the hosted fallback.
-  if (url.pathname.endsWith(".pbf") || url.pathname.endsWith(".mvt")) {
+  // Hosted releases may use extensionless tile URLs. Only numeric tile paths
+  // on the supported host qualify; TileJSON and unrelated external URLs do not.
+  if (
+    url.origin === "https://tiles.openfreemap.org" &&
+    HOSTED_TILE_PATH.test(url.pathname)
+  ) {
     return TILE_CACHE;
   }
 
@@ -137,7 +197,17 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  event.respondWith(cacheFirst(request, cacheName).catch(() => fetch(request)));
+  const result = cacheFirst(request, cacheName);
+  event.respondWith(result.then(({ response }) => response));
+  // Register the lifetime extension synchronously, while returning the network
+  // response independently of disk writes and cache maintenance.
+  event.waitUntil(
+    result
+      .then(({ persistence }) => persistence)
+      .catch(() => {
+        // The response promise already reports network errors to the requester.
+      })
+  );
 });
 
 self.addEventListener("message", (event) => {

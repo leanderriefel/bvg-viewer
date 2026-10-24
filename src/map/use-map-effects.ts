@@ -6,7 +6,10 @@ import type { RefObject } from "react";
 import { BERLIN_MAX_BOUNDS, DEFAULT_CAMERA } from "@/lib/geo";
 import type { LngLat } from "@/lib/geo";
 import { exposeMapForDebugging } from "@/map/debug";
+import { trackMapLoadingHealth } from "@/map/loading-health";
 import { DRAG_ROTATE_OPTIONS } from "@/map/navigation";
+import { INITIAL_PREPARATION, prepareMap } from "@/map/preparation";
+import type { PreparationProgress } from "@/map/preparation";
 import {
   BUILDING_SOURCE_ID,
   MIN_BUILDING_TILE_ZOOM,
@@ -28,8 +31,6 @@ import { tileZoomFor } from "@/map/tile-lod";
  * creation, restyling, camera sync, counters, interaction - is readable on its
  * own instead of as one very long effect list.
  */
-
-type MapRef = RefObject<MapLibreMap | null>;
 
 /** Properties worth surfacing in the inspector, in the order we want them. */
 const INSPECTOR_KEYS = [
@@ -98,9 +99,15 @@ export function useTileSource(): TileSource | null {
     const resolve = async () => {
       try {
         const found = await detectTileSource(ctrl.signal);
+        if (ctrl.signal.aborted) {
+          return;
+        }
         setSource(found);
         setTileSource(found.kind);
       } catch {
+        if (ctrl.signal.aborted) {
+          return;
+        }
         setSource(OPENFREEMAP_SOURCE);
         setTileSource(OPENFREEMAP_SOURCE.kind);
       }
@@ -150,6 +157,20 @@ export function useMapStyle(source: TileSource | null) {
 
 type Style = NonNullable<ReturnType<typeof useMapStyle>>;
 
+function getTileCacheSize(width: number): number {
+  const memory =
+    "deviceMemory" in navigator && typeof navigator.deviceMemory === "number"
+      ? navigator.deviceMemory
+      : 8;
+  if (memory <= 2) {
+    return 128;
+  }
+  if (memory <= 4 || width < 768) {
+    return 256;
+  }
+  return 512;
+}
+
 /**
  * Creates the map. Recreated when `quality` changes, because antialiasing is
  * fixed at WebGL context creation time; the camera survives via the URL hash.
@@ -161,10 +182,9 @@ export function useMapInstance(args: {
   style: Style | null;
   source: TileSource | null;
   quality: QualityLevel;
-}): { map: MapLibreMap | null; ready: boolean } {
+}): MapLibreMap | null {
   const { containerRef, mapRef, appliedStyleRef, style, source, quality } =
     args;
-  const [ready, setReady] = useState(false);
   const [instance, setInstance] = useState<MapLibreMap | null>(null);
 
   // The map is constructed with whatever style is current, but a later style
@@ -193,6 +213,7 @@ export function useMapInstance(args: {
       center: [...DEFAULT_CAMERA.center] as LngLat,
     };
     const initialView = useMapStore.getState().view;
+    const cacheSize = getTileCacheSize(container.clientWidth);
 
     const map = new maplibregl.Map({
       container,
@@ -217,23 +238,19 @@ export function useMapInstance(args: {
       // step; a hard cut is free and reads fine at map speeds.
       fadeDuration: 0,
       refreshExpiredTiles: false,
-      // Generous for every preset. A small cache is not a performance setting:
-      // measured, trimming it to 200 tiles made the *fastest* preset the
-      // slowest, because rotating the camera kept evicting tiles that were
-      // about to be needed again and every one of them had to be re-parsed.
-      maxTileCacheSize: 800,
+      cancelPendingTileRequestsWhileZooming: false,
+      // Size is only a ceiling: MapLibre also multiplies viewport tile count
+      // by zoom levels (default 5). Raise both to retain the warmed geometry.
+      maxTileCacheSize: cacheSize,
+      maxTileCacheZoomLevels: 128,
+      pixelRatio: PIXEL_RATIO_BY_QUALITY[quality](),
       canvasContextAttributes: {
         antialias: quality === "quality",
         powerPreference: "high-performance",
         preserveDrawingBuffer: false,
       },
     });
-
-    // Fragment cost scales with the square of the resolution, and a 3D city
-    // is fragment-bound. Capping the drawing buffer per quality tier buys far
-    // more than any geometry tweak; `quality` keeps the display's native
-    // density. Safe to call once here - a quality change rebuilds the map.
-    map.setPixelRatio(PIXEL_RATIO_BY_QUALITY[quality]());
+    const stopTrackingHealth = trackMapLoadingHealth(map);
 
     appliedStyleRef.current = initialStyle;
     mapRef.current = map;
@@ -244,21 +261,19 @@ export function useMapInstance(args: {
       "bottom-right"
     );
 
-    const onLoad = () => setReady(true);
-
     // The LOD functions live on the source instances, so they can only be
     // attached once the style has created them. Buildings retain at least z13
     // even when the basemap switches to tiles without building geometry.
+    const basemapZoom = tileZoomFor(quality);
+    const buildingZoom = tileZoomFor(quality, MIN_BUILDING_TILE_ZOOM);
     const applyLod = () => {
       for (const id of [SOURCE_ID, BUILDING_SOURCE_ID]) {
         const src = map.getSource<maplibregl.Source>(id);
         if (!src) {
           continue;
         }
-        src.calculateTileZoom = tileZoomFor(
-          quality,
-          id === BUILDING_SOURCE_ID ? MIN_BUILDING_TILE_ZOOM : 0
-        );
+        src.calculateTileZoom =
+          id === BUILDING_SOURCE_ID ? buildingZoom : basemapZoom;
       }
     };
 
@@ -269,34 +284,31 @@ export function useMapInstance(args: {
       console.error("[map]", e.error?.message ?? e);
     };
 
-    map.on("load", onLoad);
     map.on("styledata", applyLod);
     map.on("error", onError);
 
     exposeMapForDebugging(map);
 
     return () => {
-      map.off("load", onLoad);
+      stopTrackingHealth();
       map.off("styledata", applyLod);
       map.off("error", onError);
       map.remove();
       mapRef.current = null;
       setInstance(null);
-      setReady(false);
     };
   }, [source, quality, containerRef, mapRef, appliedStyleRef]);
 
-  return { map: instance, ready };
+  return instance;
 }
 
 /** Applies a new style in place, keeping the camera and the loaded tiles. */
 export function useRestyle(
-  mapRef: MapRef,
+  map: MapLibreMap | null,
   style: Style | null,
   appliedStyleRef: RefObject<Style | null>
 ): void {
   useEffect(() => {
-    const map = mapRef.current;
     if (!(map && style) || appliedStyleRef.current === style) {
       return;
     }
@@ -311,25 +323,93 @@ export function useRestyle(
       map.setStyle(style, { diff: true });
     };
 
-    if (map.isStyleLoaded()) {
+    // Animated transit can keep its GeoJSON workers busy indefinitely. Once
+    // the style definition exists, diff it without waiting for those sources.
+    if (map.getStyle()) {
+      // Patches an external renderer, without notifying a React parent.
+      // oxlint-disable-next-line react-doctor/no-pass-live-state-to-parent
       apply();
       return;
     }
 
     // Switching theme while the first style is still loading has to wait, or
     // the diff has nothing to diff against.
-    map.once("idle", apply);
+    map.once("style.load", apply);
     return () => {
-      map.off("idle", apply);
+      map.off("style.load", apply);
     };
-  }, [style, mapRef, appliedStyleRef]);
+  }, [style, map, appliedStyleRef]);
+}
+
+/** Keep the canvas covered until its final starting viewport has rendered. */
+export function useMapPreparation(
+  map: MapLibreMap | null
+): PreparationProgress {
+  const [state, setState] = useState<{
+    map: MapLibreMap;
+    progress: PreparationProgress;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!map) {
+      return;
+    }
+    const controller = new AbortController();
+    const connection = "connection" in navigator ? navigator.connection : null;
+    const saveData =
+      connection && typeof connection === "object" && "saveData" in connection
+        ? connection.saveData === true
+        : false;
+    const run = async () => {
+      try {
+        await prepareMap(map, {
+          signal: controller.signal,
+          preloadRegion: !saveData,
+          onProgress: (progress) => {
+            if (!controller.signal.aborted) {
+              setState({ map, progress });
+            }
+          },
+        });
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          setState({
+            map,
+            progress: {
+              ...INITIAL_PREPARATION,
+              stage: "error",
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Unable to load the map. Please try again.",
+            },
+          });
+        }
+      }
+    };
+    void run();
+    return () => controller.abort();
+  }, [map]);
+
+  return state?.map === map ? state.progress : INITIAL_PREPARATION;
 }
 
 /** Pitch and bearing follow the 2D/3D toggle. */
-export function useViewMode(mapRef: MapRef, view: ViewMode): void {
+export function useViewMode(
+  map: MapLibreMap | null,
+  ready: boolean,
+  view: ViewMode
+): void {
+  const applied = useRef<{ map: MapLibreMap; view: ViewMode } | null>(null);
   useEffect(() => {
-    const map = mapRef.current;
-    if (!map) {
+    if (!(map && ready)) {
+      return;
+    }
+    const previous = applied.current;
+    applied.current = { map, view };
+    // The constructor already applied the shared camera. Preserve its pitch
+    // when preparation completes or a quality change creates another map.
+    if (previous?.map !== map || previous.view === view) {
       return;
     }
 
@@ -340,16 +420,15 @@ export function useViewMode(mapRef: MapRef, view: ViewMode): void {
       map.setMaxPitch(78);
       map.easeTo({ duration: 450, pitch: DEFAULT_CAMERA.pitch });
     }
-  }, [view, mapRef]);
+  }, [view, ready, map]);
 }
 
 /** Mirrors the camera into the store and the URL hash. */
-export function useCameraSync(mapRef: MapRef, ready: boolean): void {
+export function useCameraSync(map: MapLibreMap | null, ready: boolean): void {
   const setCamera = useMapStore((s) => s.setCamera);
 
   useEffect(() => {
-    const map = mapRef.current;
-    if (!map) {
+    if (!(map && ready)) {
       return;
     }
 
@@ -380,27 +459,28 @@ export function useCameraSync(mapRef: MapRef, ready: boolean): void {
       map.off("moveend", sync);
       cancelAnimationFrame(raf);
     };
-  }, [setCamera, ready, mapRef]);
+  }, [setCamera, ready, map]);
 }
 
 /** Frame rate and tile counters for the status strip. */
-export function usePerfCounters(mapRef: MapRef): void {
+export function usePerfCounters(map: MapLibreMap | null): void {
   const setFps = useMapStore((s) => s.setFps);
   const setLoadedTiles = useMapStore((s) => s.setLoadedTiles);
 
   useEffect(() => {
-    const map = mapRef.current;
     if (!map) {
       return;
     }
 
     let frames = 0;
-    let last = performance.now();
-    let alive = true;
+    let last = 0;
 
     const onRender = () => {
-      frames += 1;
       const now = performance.now();
+      if (last === 0) {
+        last = now;
+      }
+      frames += 1;
       if (now - last >= 500) {
         setFps(Math.round((frames * 1000) / (now - last)));
         frames = 0;
@@ -410,11 +490,11 @@ export function usePerfCounters(mapRef: MapRef): void {
 
     // When the map is idle it stops painting, and a stalled counter reads as a
     // hang. Show "idle" instead once frames stop arriving.
-    const idle = window.setInterval(() => {
-      if (alive && performance.now() - last > 1200) {
-        setFps(0);
-      }
-    }, 1000);
+    const onIdle = () => {
+      frames = 0;
+      last = 0;
+      setFps(0);
+    };
 
     // The count is only a read-out, so it is flushed on a timer: writing to the
     // store on every tile would re-render the HUD dozens of times a second
@@ -423,7 +503,7 @@ export function usePerfCounters(mapRef: MapRef): void {
     let tiles = 0;
     let flushed = 0;
     const onData = (e: maplibregl.MapSourceDataEvent) => {
-      if (e.sourceId === SOURCE_ID && e.tile && e.isSourceLoaded !== false) {
+      if (e.sourceId === SOURCE_ID && e.tile?.state === "loaded") {
         tiles += 1;
       }
     };
@@ -436,16 +516,16 @@ export function usePerfCounters(mapRef: MapRef): void {
     }, 500);
 
     map.on("render", onRender);
+    map.on("idle", onIdle);
     map.on("sourcedata", onData);
 
     return () => {
-      alive = false;
-      window.clearInterval(idle);
       window.clearInterval(flush);
       map.off("render", onRender);
+      map.off("idle", onIdle);
       map.off("sourcedata", onData);
     };
-  }, [setFps, setLoadedTiles, mapRef]);
+  }, [setFps, setLoadedTiles, map]);
 }
 
 function isInspectable(feature: MapGeoJSONFeature): boolean {
@@ -454,11 +534,13 @@ function isInspectable(feature: MapGeoJSONFeature): boolean {
 
 /** Click-to-inspect. Hover highlighting was removed: queryRenderedFeatures on
  * every mouse frame was a constant tax on a dense 3D scene for pure fluff. */
-export function useFeatureInteraction(mapRef: MapRef, ready: boolean): void {
+export function useFeatureInteraction(
+  map: MapLibreMap | null,
+  ready: boolean
+): void {
   const setSelection = useMapStore((s) => s.setSelection);
 
   useEffect(() => {
-    const map = mapRef.current;
     if (!(map && ready)) {
       return;
     }
@@ -488,23 +570,25 @@ export function useFeatureInteraction(mapRef: MapRef, ready: boolean): void {
     return () => {
       map.off("click", onClick);
     };
-  }, [ready, setSelection, mapRef]);
+  }, [ready, setSelection, map]);
 }
 
 /** The pin dropped by a search result. */
-export function useSearchMarker(mapRef: MapRef): void {
+export function useSearchMarker(map: MapLibreMap | null): void {
   const marker = useMapStore((s) => s.marker);
 
   useEffect(() => {
-    const map = mapRef.current;
     if (!(map && marker)) {
       return;
     }
 
     const el = document.createElement("div");
     el.className = "berlin-pin";
-    el.innerHTML =
-      '<span class="berlin-pin__dot"></span><span class="berlin-pin__pulse"></span>';
+    const dot = document.createElement("span");
+    dot.className = "berlin-pin__dot";
+    const pulse = document.createElement("span");
+    pulse.className = "berlin-pin__pulse";
+    el.append(dot, pulse);
 
     const pin = new maplibregl.Marker({ anchor: "center", element: el })
       .setLngLat(marker.center)
@@ -513,5 +597,5 @@ export function useSearchMarker(mapRef: MapRef): void {
     return () => {
       pin.remove();
     };
-  }, [marker, mapRef]);
+  }, [marker, map]);
 }

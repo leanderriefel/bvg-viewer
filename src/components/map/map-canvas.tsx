@@ -1,9 +1,9 @@
 import type { Map as MapLibreMap } from "maplibre-gl";
 import { useCallback, useMemo, useRef } from "react";
 
-import { DEFAULT_CAMERA } from "@/lib/geo";
+import { MapBootScreen } from "@/components/map/boot-screen";
 import { MapContext } from "@/map/map-context";
-import type { FlyTarget, MapApi } from "@/map/map-context";
+import type { MapApi } from "@/map/map-context";
 import { useMapStore } from "@/map/store";
 import { useTransitFeed } from "@/map/transit/use-transit-feed";
 import { useTransitLayer } from "@/map/transit/use-transit-layer";
@@ -13,6 +13,7 @@ import {
   useCameraSync,
   useFeatureInteraction,
   useMapInstance,
+  useMapPreparation,
   useMapStyle,
   usePerfCounters,
   useRestyle,
@@ -20,6 +21,7 @@ import {
   useTileSource,
   useViewMode,
 } from "@/map/use-map-effects";
+import { usePreparedNavigation } from "@/map/use-prepared-navigation";
 
 interface Props {
   children?: React.ReactNode;
@@ -27,7 +29,7 @@ interface Props {
 
 /**
  * Owns the MapLibre instance and publishes an imperative handle to the rest of
- * the UI. Everything imperative lives in `use-map-effects`; this component is
+ * the UI. The hooks own map preparation and effects; this component is
  * the container element, the camera helpers, and the context.
  */
 export function MapCanvas({ children }: Props) {
@@ -41,7 +43,7 @@ export function MapCanvas({ children }: Props) {
   const style = useMapStyle(source);
   const appliedStyleRef = useRef<typeof style>(null);
 
-  const { map, ready } = useMapInstance({
+  const map = useMapInstance({
     appliedStyleRef,
     containerRef,
     mapRef,
@@ -50,48 +52,22 @@ export function MapCanvas({ children }: Props) {
     style,
   });
 
-  useRestyle(mapRef, style, appliedStyleRef);
-  useViewMode(mapRef, view);
-  useCameraSync(mapRef, ready);
-  usePerfCounters(mapRef);
-  useFeatureInteraction(mapRef, ready);
-  useSearchMarker(mapRef);
+  const preparation = useMapPreparation(map);
+  const startupReady = preparation.stage === "ready";
+  const navigation = usePreparedNavigation(map, startupReady);
+  const { flyTo, jumpTo } = navigation;
+  const ready = startupReady && !navigation.busy;
+
+  useRestyle(map, style, appliedStyleRef);
+  useViewMode(map, ready, view);
+  useCameraSync(map, ready);
+  usePerfCounters(map);
+  useFeatureInteraction(map, ready);
+  useSearchMarker(map);
   useTransitFeed();
   useTransitLayer(map, ready);
   useVehicleRoute();
   useVehicleFollow(map, ready);
-
-  const flyTo = useCallback((t: FlyTarget) => {
-    const instance = mapRef.current;
-    if (!instance) {
-      return;
-    }
-    const flat = useMapStore.getState().view === "flat";
-    instance.flyTo({
-      center: t.center,
-      zoom: t.zoom ?? 16.5,
-      pitch: flat ? 0 : (t.pitch ?? DEFAULT_CAMERA.pitch),
-      bearing: flat ? 0 : (t.bearing ?? 0),
-      // A gentle curve reads as travel across the city rather than a cut.
-      speed: 1.4,
-      curve: 1.5,
-      essential: true,
-    });
-  }, []);
-
-  const jumpTo = useCallback((t: FlyTarget) => {
-    const instance = mapRef.current;
-    if (!instance) {
-      return;
-    }
-    const flat = useMapStore.getState().view === "flat";
-    instance.jumpTo({
-      bearing: flat ? 0 : (t.bearing ?? 0),
-      center: t.center,
-      pitch: flat ? 0 : (t.pitch ?? DEFAULT_CAMERA.pitch),
-      zoom: t.zoom ?? 16.5,
-    });
-  }, []);
 
   const resetNorth = useCallback(() => {
     mapRef.current?.easeTo({ bearing: 0, duration: 400 });
@@ -105,7 +81,15 @@ export function MapCanvas({ children }: Props) {
   return (
     <MapContext.Provider value={api}>
       <div className="absolute inset-0" ref={containerRef} />
-      {children}
+      {ready && children}
+      {!ready && (
+        <div className="absolute inset-0 z-20">
+          <MapBootScreen
+            destination={navigation.busy}
+            progress={navigation.progress ?? preparation}
+          />
+        </div>
+      )}
     </MapContext.Provider>
   );
 }
