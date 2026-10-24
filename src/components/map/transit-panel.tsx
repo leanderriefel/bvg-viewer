@@ -166,7 +166,8 @@ function FeedDetails({
         </p>
         {(error || snapshot?.error) && (
           <p className="text-amber-700 dark:text-amber-400">
-            {error || snapshot?.error}
+            Some updates are delayed. Vehicles follow their latest forecast
+            while we retry.
           </p>
         )}
         <a

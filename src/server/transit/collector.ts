@@ -1,4 +1,4 @@
-// Requests and sweep timers must stay sequential to enforce the upstream quota.
+// Each worker waits for a shared request slot; sweep timers cannot overlap.
 /* oxlint-disable eslint/no-await-in-loop */
 import { setTimeout as pause } from "node:timers/promises";
 
@@ -42,6 +42,7 @@ interface CollectorOptions {
   now?: () => number;
   sleep?: (milliseconds: number, signal: AbortSignal) => Promise<void>;
   cells?: BBox[];
+  concurrency?: number;
 }
 
 function wait(milliseconds: number, signal: AbortSignal): Promise<void> {
@@ -71,6 +72,7 @@ export class TransitCollector {
   private readonly now: () => number;
   private readonly sleep: NonNullable<CollectorOptions["sleep"]>;
   private readonly cells: BBox[];
+  private readonly concurrency: number;
   private readonly controller = new AbortController();
   private readonly vehicles = new Map<string, TransitVehicle>();
   private readonly cellState = new Map<number, CellState>();
@@ -78,6 +80,7 @@ export class TransitCollector {
   private running = false;
   private started = false;
   private nextRequestAt = 0;
+  private lastRequestAt = -Infinity;
   private backoffUntil = 0;
   private failedSweeps = 0;
 
@@ -87,6 +90,16 @@ export class TransitCollector {
     this.now = options.now ?? Date.now;
     this.sleep = options.sleep ?? wait;
     this.cells = options.cells ?? createRadarCells(BERLIN_BBOX);
+    this.concurrency = options.concurrency ?? 4;
+    if (
+      !Number.isInteger(this.concurrency) ||
+      this.concurrency < 1 ||
+      this.concurrency > 4
+    ) {
+      throw new Error(
+        "Transit collection concurrency must be an integer between 1 and 4"
+      );
+    }
     this.snapshot = {
       vehicles: [],
       updatedAt: null,
@@ -204,64 +217,81 @@ export class TransitCollector {
     this.running = true;
     let successes = 0;
     let error: string | null = null;
+    let nextCell = 0;
     try {
-      for (const [index, cell] of this.cells.entries()) {
-        const delay = this.nextRequestAt - this.now();
-        if (delay > 0) {
-          await this.sleep(delay, this.controller.signal);
-        }
-        if (this.controller.signal.aborted) {
-          return;
-        }
-        const observedAt = this.now();
-        this.nextRequestAt = observedAt + REQUEST_SPACING_MS;
-        try {
-          const data = await this.fetchCell(cell);
-          const movements = normalizeRadar(data, observedAt);
-          for (const vehicle of movements) {
-            const previous = this.vehicles.get(vehicle.id);
-            if (!previous || previous.observedAt <= vehicle.observedAt) {
-              this.vehicles.set(vehicle.id, vehicle);
+      const worker = async () => {
+        while (
+          !this.controller.signal.aborted &&
+          this.now() >= this.backoffUntil
+        ) {
+          // Claim synchronously before waiting so workers never repeat a cell.
+          const index = nextCell;
+          nextCell += 1;
+          const cell = this.cells[index];
+          if (!cell) {
+            return;
+          }
+          const observedAt = await this.waitForRequestSlot();
+          if (observedAt === null) {
+            return;
+          }
+          try {
+            const data = await this.fetchCell(cell);
+            const movements = normalizeRadar(data, observedAt);
+            for (const vehicle of movements) {
+              const previous = this.vehicles.get(vehicle.id);
+              if (!previous || previous.observedAt <= vehicle.observedAt) {
+                this.vehicles.set(vehicle.id, vehicle);
+              }
             }
-          }
-          const capped =
-            Array.isArray(data.movements) &&
-            data.movements.length >= RADAR_RESULTS;
-          this.cellState.set(index, {
-            updatedAt: observedAt,
-            succeeded: true,
-            capped,
-          });
-          successes += 1;
-          this.snapshot = {
-            ...this.snapshot,
-            updatedAt: observedAt,
-            realtimeDataUpdatedAt:
-              typeof data.realtimeDataUpdatedAt === "number"
-                ? data.realtimeDataUpdatedAt * 1000
-                : this.snapshot.realtimeDataUpdatedAt,
-            error,
-          };
-          this.publish();
-        } catch (error_) {
-          this.cellState.set(index, {
-            updatedAt: observedAt,
-            succeeded: false,
-            capped: false,
-          });
-          error =
-            error_ instanceof Error
-              ? error_.message
-              : "Could not read VBB movements";
-          this.snapshot = { ...this.snapshot, error };
-          if (
-            this.now() < this.backoffUntil ||
-            this.controller.signal.aborted
-          ) {
-            break;
+            const capped = data.movements.length >= RADAR_RESULTS;
+            this.cellState.set(index, {
+              updatedAt: observedAt,
+              succeeded: true,
+              capped,
+            });
+            successes += 1;
+            this.snapshot = {
+              ...this.snapshot,
+              // Completion order differs from request order. Every accepted
+              // response must advance the HTTP snapshot's cache identity.
+              updatedAt: Math.max(
+                this.now(),
+                (this.snapshot.updatedAt ?? 0) + 1
+              ),
+              realtimeDataUpdatedAt:
+                typeof data.realtimeDataUpdatedAt === "number" &&
+                Number.isFinite(data.realtimeDataUpdatedAt) &&
+                data.realtimeDataUpdatedAt >= 0
+                  ? Math.max(
+                      this.snapshot.realtimeDataUpdatedAt ?? 0,
+                      data.realtimeDataUpdatedAt * 1000
+                    )
+                  : this.snapshot.realtimeDataUpdatedAt,
+              error,
+            };
+            this.publish();
+          } catch (error_) {
+            this.cellState.set(index, {
+              updatedAt: observedAt,
+              succeeded: false,
+              capped: false,
+            });
+            error =
+              error_ instanceof Error
+                ? error_.message
+                : "Could not read VBB movements";
+            this.snapshot = { ...this.snapshot, error };
+            this.publish();
           }
         }
-      }
+      };
+      await Promise.all(
+        Array.from(
+          { length: Math.min(this.concurrency, this.cells.length) },
+          worker
+        )
+      );
       if (successes === 0) {
         this.failedSweeps += 1;
         this.backoffUntil = Math.max(
@@ -284,6 +314,39 @@ export class TransitCollector {
     } finally {
       this.running = false;
     }
+  }
+
+  private async waitForRequestSlot(): Promise<number | null> {
+    // Reserve before the first await: simultaneous workers share one schedule.
+    const scheduledAt = Math.max(this.now(), this.nextRequestAt);
+    this.nextRequestAt = scheduledAt + REQUEST_SPACING_MS;
+    let delay = scheduledAt - this.now();
+    try {
+      while (delay > 0) {
+        await this.sleep(delay, this.controller.signal);
+        if (this.controller.signal.aborted || this.now() < this.backoffUntil) {
+          return null;
+        }
+        // An event-loop stall can wake several reserved timers together. Check
+        // actual starts too, preserving the quota when those timers run late.
+        delay = this.lastRequestAt + REQUEST_SPACING_MS - this.now();
+      }
+    } catch (error) {
+      if (this.controller.signal.aborted) {
+        return null;
+      }
+      throw error;
+    }
+    if (this.controller.signal.aborted || this.now() < this.backoffUntil) {
+      return null;
+    }
+    const observedAt = this.now();
+    this.lastRequestAt = observedAt;
+    this.nextRequestAt = Math.max(
+      this.nextRequestAt,
+      observedAt + REQUEST_SPACING_MS
+    );
+    return observedAt;
   }
 
   private async fetchCell([west, south, east, north]: BBox): Promise<{
@@ -311,9 +374,14 @@ export class TransitCollector {
       ]),
     });
     if (response.status === 429) {
-      this.backoffUntil =
+      this.backoffUntil = Math.max(
+        this.backoffUntil,
         this.now() +
-        retryAfterMilliseconds(response.headers.get("retry-after"), this.now());
+          retryAfterMilliseconds(
+            response.headers.get("retry-after"),
+            this.now()
+          )
+      );
       throw new Error("VBB request limit reached; waiting before retrying");
     }
     if (!response.ok) {

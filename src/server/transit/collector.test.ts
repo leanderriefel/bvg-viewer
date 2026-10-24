@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vite-plus/test";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { BERLIN_BBOX } from "@/lib/geo";
 import type { BBox } from "@/lib/geo";
@@ -14,6 +14,59 @@ import {
 } from "./collector";
 
 const CELL: BBox = [13.3, 52.4, 13.4, 52.5];
+
+afterEach(() => vi.useRealTimers());
+
+function uninitializedResponse(_response: Response): never {
+  throw new Error("Deferred response was not initialized");
+}
+
+function fakeTimerSleep(milliseconds: number): Promise<void> {
+  // oxlint-disable-next-line promise/avoid-new -- Fake timers advance every worker against one wall clock.
+  return new Promise((resolve) => {
+    setTimeout(resolve, milliseconds);
+  });
+}
+
+function deferredResponse() {
+  let complete: (response: Response) => void = uninitializedResponse;
+  // oxlint-disable-next-line promise/avoid-new -- A controlled unresolved fetch proves the in-flight bound.
+  const promise = new Promise<Response>((resolve) => {
+    complete = resolve;
+  });
+  return { promise, resolve: (response: Response) => complete(response) };
+}
+
+function concurrentSetup(cellCount: number) {
+  vi.useFakeTimers();
+  vi.setSystemTime(1_000_000);
+  const responses: ReturnType<typeof deferredResponse>[] = [];
+  const requestedAt: number[] = [];
+  let active = 0;
+  let peak = 0;
+  const request = vi.fn(async () => {
+    const response = deferredResponse();
+    responses.push(response);
+    requestedAt.push(Date.now());
+    active += 1;
+    peak = Math.max(peak, active);
+    try {
+      return await response.promise;
+    } finally {
+      active -= 1;
+    }
+  });
+  const collector = new TransitCollector({
+    storage: {
+      load: () => Promise.resolve(null),
+      save: () => Promise.resolve(),
+    },
+    fetch: request,
+    cells: Array.from({ length: cellCount }, () => CELL),
+    sleep: fakeTimerSleep,
+  });
+  return { collector, responses, requestedAt, request, peak: () => peak };
+}
 
 function radar(id = "trip-1", count = 1) {
   return {
@@ -46,6 +99,7 @@ function setup(responses: Response[], cells = [CELL]) {
   const collector = new TransitCollector({
     storage,
     cells,
+    concurrency: 1,
     fetch: request,
     now: () => now,
     sleep: (milliseconds) => {
@@ -116,7 +170,7 @@ describe("shared Berlin transit collection", () => {
     expect(request).toHaveBeenCalledTimes(1);
   });
 
-  it("keeps last known vehicles on failures and expires them after 90 seconds", async () => {
+  it("keeps last known vehicles on failures and expires them after the freshness window", async () => {
     const { collector, advance } = setup([
       Response.json(radar()),
       new Response(null, { status: 503 }),
@@ -236,5 +290,93 @@ describe("shared Berlin transit collection", () => {
     await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(1));
     expect(storage.load).toHaveBeenCalledTimes(1);
     expect(restoredId).toBe("saved-trip");
+  });
+
+  it("bounds concurrent requests, spaces every start, and accepts out-of-order results monotonically", async () => {
+    const fixture = concurrentSetup(6);
+    const sweep = fixture.collector.sweep();
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(fixture.request).toHaveBeenCalledTimes(4);
+    expect(fixture.peak()).toBe(4);
+    await fixture.collector.sweep();
+    expect(fixture.request).toHaveBeenCalledTimes(4);
+
+    fixture.responses[3].resolve(Response.json(radar()));
+    await vi.advanceTimersByTimeAsync(0);
+    const newer = fixture.collector.getSnapshot();
+    expect(newer.vehicles[0].observedAt).toBe(fixture.requestedAt[3]);
+
+    fixture.responses[0].resolve(Response.json(radar()));
+    await vi.advanceTimersByTimeAsync(0);
+    const olderCompletedLater = fixture.collector.getSnapshot();
+    expect(olderCompletedLater.updatedAt).toBeGreaterThan(newer.updatedAt ?? 0);
+    expect(olderCompletedLater.vehicles[0].observedAt).toBe(
+      fixture.requestedAt[3]
+    );
+
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(fixture.request).toHaveBeenCalledTimes(6);
+    for (const response of fixture.responses) {
+      response.resolve(Response.json(radar()));
+    }
+    await sweep;
+    expect(fixture.peak()).toBe(4);
+    for (let index = 1; index < fixture.requestedAt.length; index += 1) {
+      expect(
+        fixture.requestedAt[index] - fixture.requestedAt[index - 1]
+      ).toBeGreaterThanOrEqual(REQUEST_SPACING_MS);
+    }
+    expect(fixture.collector.getSnapshot().coverage.succeeded).toBe(6);
+  });
+
+  it("cancels reserved starts and unclaimed cells after a global 429", async () => {
+    const fixture = concurrentSetup(8);
+    const sweep = fixture.collector.sweep();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fixture.request).toHaveBeenCalledTimes(1);
+    fixture.responses[0].resolve(
+      new Response(null, {
+        status: 429,
+        headers: { "retry-after": "120" },
+      })
+    );
+    await vi.advanceTimersByTimeAsync(4000);
+    await sweep;
+    await fixture.collector.sweep();
+    expect(fixture.request).toHaveBeenCalledTimes(1);
+    expect(fixture.collector.getSnapshot().coverage.succeeded).toBe(0);
+  });
+
+  it("allows requests already in flight to settle after a global 429 without claiming more work", async () => {
+    const fixture = concurrentSetup(8);
+    const sweep = fixture.collector.sweep();
+    await vi.advanceTimersByTimeAsync(3000);
+    fixture.responses[0].resolve(
+      new Response(null, {
+        status: 429,
+        headers: { "retry-after": "120" },
+      })
+    );
+    await vi.advanceTimersByTimeAsync(0);
+    // Another already-sent request can also be throttled. Its shorter retry
+    // must not shorten the first response's process-wide cooldown.
+    fixture.responses[1].resolve(
+      new Response(null, {
+        status: 429,
+        headers: { "retry-after": "30" },
+      })
+    );
+    for (const response of fixture.responses.slice(2)) {
+      response.resolve(Response.json(radar()));
+    }
+    await sweep;
+    expect(fixture.request).toHaveBeenCalledTimes(4);
+    expect(fixture.collector.getSnapshot()).toMatchObject({
+      status: "degraded",
+      coverage: { total: 8, succeeded: 2 },
+    });
+    await vi.advanceTimersByTimeAsync(60_000);
+    await fixture.collector.sweep();
+    expect(fixture.request).toHaveBeenCalledTimes(4);
   });
 });

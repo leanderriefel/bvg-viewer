@@ -305,6 +305,39 @@ function installLayers(
   }
 }
 
+function updateVehicleBearing(
+  render: RenderVehicle,
+  pose: TransitPose,
+  state: TransitState,
+  time: number
+): void {
+  const fullRoute =
+    state.selectedRoute?.tripId === render.vehicle.id
+      ? state.selectedRoute
+      : null;
+  const routeHeading =
+    !render.hasHeading && fullRoute
+      ? routeBearing(
+          fullRoute.coordinates,
+          pose.coordinates,
+          render.headingTrusted ? render.drawnBearing : undefined
+        )
+      : null;
+  const heading = render.hasHeading
+    ? pose.bearing
+    : (routeHeading ?? render.drawnBearing);
+  // A round marker had no visible orientation to interpolate from. Give its
+  // first directional shape the actual heading instead of rotating from north.
+  const canBlendBearing = render.bearingInitialized && render.headingTrusted;
+  render.headingTrusted ||= render.hasHeading || routeHeading !== null;
+  render.feature.properties.headingKnown = render.headingTrusted;
+  const blend = 1 - Math.exp(-(time - render.drawnAt) / 300);
+  render.drawnBearing = canBlendBearing
+    ? smoothBearing(render.drawnBearing, heading, blend)
+    : heading;
+  render.bearingInitialized = true;
+}
+
 function updateVisibleVehicles(
   map: MapLibreMap,
   renderVehicles: RenderVehicle[],
@@ -347,26 +380,7 @@ function updateVisibleVehicles(
     ) {
       continue;
     }
-    const fullRoute =
-      state.selectedRoute?.tripId === id ? state.selectedRoute : null;
-    const routeHeading =
-      !render.hasHeading && fullRoute
-        ? routeBearing(
-            fullRoute.coordinates,
-            pose.coordinates,
-            render.headingTrusted ? render.drawnBearing : undefined
-          )
-        : null;
-    const heading = render.hasHeading
-      ? pose.bearing
-      : (routeHeading ?? render.drawnBearing);
-    render.headingTrusted ||= render.hasHeading || routeHeading !== null;
-    render.feature.properties.headingKnown = render.headingTrusted;
-    const blend = 1 - Math.exp(-(time - render.drawnAt) / 300);
-    render.drawnBearing = render.bearingInitialized
-      ? smoothBearing(render.drawnBearing, heading, blend)
-      : heading;
-    render.bearingInitialized = true;
+    updateVehicleBearing(render, pose, state, time);
     placeFootprint(render, pose.coordinates, render.drawnBearing);
     const [longitude, latitude] = pose.coordinates;
     render.point.geometry.coordinates[0] = longitude;
