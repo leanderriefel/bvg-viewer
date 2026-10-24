@@ -216,6 +216,12 @@ body {
   left: max(var(--map-edge), env(safe-area-inset-left));
 }
 
+.map-model-credit {
+  position: absolute;
+  bottom: max(6px, calc(env(safe-area-inset-bottom) + 4px));
+  left: max(var(--map-edge), env(safe-area-inset-left));
+}
+
 .map-transit {
   right: max(var(--map-edge), env(safe-area-inset-right));
   bottom: var(--map-bottom);

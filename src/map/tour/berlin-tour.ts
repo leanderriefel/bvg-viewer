@@ -14,8 +14,8 @@ import { useTransitStore } from "@/map/transit/store";
 import { destinationCamera } from "@/map/use-prepared-navigation";
 
 const FLIGHT_MS = 3200;
-const LANDMARK_MS = 6000;
-const VEHICLE_MS = 12_000;
+const LANDMARK_MS = 3000;
+const VEHICLE_MS = 3000;
 const VEHICLE_RADIUS_METRES = 5000;
 const TOUR_EVENT = { berlinTour: true };
 const CAMERA_EVENTS = [

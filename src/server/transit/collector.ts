@@ -1,4 +1,4 @@
-// Each worker waits for a shared request slot; sweep timers cannot overlap.
+// Workers share a request budget, but each area owns its refresh/retry schedule.
 /* oxlint-disable eslint/no-await-in-loop */
 import { setTimeout as pause } from "node:timers/promises";
 
@@ -10,8 +10,13 @@ import type { TransitSnapshot, TransitVehicle } from "@/map/transit/model";
 import type { TransitStorage } from "./storage";
 
 export const TRANSIT_POLL_INTERVAL_MS = 30_000;
-export const REQUEST_SPACING_MS = 1000;
+// At most 48 radar + 40 route requests/minute, including retries and splits.
+export const REQUEST_SPACING_MS = 1250;
 export const RADAR_RESULTS = 512;
+export const RADAR_TIMEOUT_MS = 45_000;
+export const AREA_RETRY_MS = 5000;
+export const MAX_RADAR_CELLS = 256;
+export const MAX_RADAR_DEPTH = 6;
 const MAX_RETRY_AFTER_MS = 300_000;
 
 /** Small areas avoid the city-wide endpoint silently truncating at its result cap. */
@@ -31,10 +36,41 @@ export function createRadarCells(bounds: BBox): BBox[] {
   return cells;
 }
 
-interface CellState {
+interface RadarCell {
+  bounds: BBox;
+  depth: number;
+  nextAt: number;
+  inFlight: boolean;
+  failures: number;
+  error: string | null;
   updatedAt: number;
   succeeded: boolean;
   capped: boolean;
+}
+
+function radarCell(bounds: BBox, depth = 0, nextAt = 0): RadarCell {
+  return {
+    bounds,
+    depth,
+    nextAt,
+    inFlight: false,
+    failures: 0,
+    error: null,
+    updatedAt: 0,
+    succeeded: false,
+    capped: false,
+  };
+}
+
+function splitBounds([west, south, east, north]: BBox): BBox[] {
+  const middleLongitude = (west + east) / 2;
+  const middleLatitude = (south + north) / 2;
+  return [
+    [west, south, middleLongitude, middleLatitude],
+    [middleLongitude, south, east, middleLatitude],
+    [west, middleLatitude, middleLongitude, north],
+    [middleLongitude, middleLatitude, east, north],
+  ];
 }
 
 interface CollectorOptions {
@@ -82,25 +118,28 @@ export class TransitCollector {
   private readonly request: typeof fetch;
   private readonly now: () => number;
   private readonly sleep: NonNullable<CollectorOptions["sleep"]>;
-  private readonly cells: BBox[];
+  private readonly cells: Set<RadarCell>;
   private readonly concurrency: number;
   private readonly controller = new AbortController();
   private readonly vehicles = new Map<string, TransitVehicle>();
-  private readonly cellState = new Map<number, CellState>();
   private snapshot: TransitSnapshot;
   private running = false;
   private started = false;
   private nextRequestAt = 0;
   private lastRequestAt = -Infinity;
   private backoffUntil = 0;
-  private failedSweeps = 0;
+  private fatalError: string | null = null;
 
   constructor(options: CollectorOptions) {
     this.storage = options.storage;
     this.request = options.fetch ?? fetch;
     this.now = options.now ?? Date.now;
     this.sleep = options.sleep ?? wait;
-    this.cells = options.cells ?? createRadarCells(BERLIN_BBOX);
+    this.cells = new Set(
+      (options.cells ?? createRadarCells(BERLIN_BBOX)).map((bounds) =>
+        radarCell(bounds)
+      )
+    );
     this.concurrency = options.concurrency ?? 4;
     if (
       !Number.isInteger(this.concurrency) ||
@@ -115,7 +154,7 @@ export class TransitCollector {
       vehicles: [],
       updatedAt: null,
       realtimeDataUpdatedAt: null,
-      coverage: { total: this.cells.length, succeeded: 0, capped: 0 },
+      coverage: { total: this.cells.size, succeeded: 0, capped: 0 },
       status: "starting",
       error: null,
       storage: "memory",
@@ -150,29 +189,28 @@ export class TransitCollector {
     }
     let succeeded = 0;
     let capped = 0;
-    for (const cell of this.cellState.values()) {
+    let error = this.fatalError;
+    for (const cell of this.cells) {
       if (cell.succeeded && now - cell.updatedAt <= MAX_VEHICLE_AGE_MS) {
         succeeded += 1;
-        capped += Number(cell.capped);
       }
+      capped += Number(cell.capped);
+      error ??= cell.error;
     }
     let status: TransitSnapshot["status"] = "degraded";
     if (this.snapshot.updatedAt === null) {
-      status = this.snapshot.error ? "offline" : "starting";
+      status = error ? "offline" : "starting";
     } else if (now - this.snapshot.updatedAt > MAX_VEHICLE_AGE_MS) {
       status = "offline";
-    } else if (
-      succeeded === this.cells.length &&
-      capped === 0 &&
-      !this.snapshot.error
-    ) {
+    } else if (succeeded === this.cells.size && capped === 0 && !error) {
       status = "live";
     }
     this.snapshot = {
       ...this.snapshot,
       vehicles: [...this.vehicles.values()],
-      coverage: { total: this.cells.length, succeeded, capped },
+      coverage: { total: this.cells.size, succeeded, capped },
       status,
+      error,
     };
   }
 
@@ -195,28 +233,19 @@ export class TransitCollector {
   private async run(): Promise<void> {
     try {
       await this.restore();
-      while (!this.controller.signal.aborted) {
-        const startedAt = this.now();
-        await this.sweep();
-        const delay = Math.max(
-          1000,
-          startedAt + TRANSIT_POLL_INTERVAL_MS - this.now(),
-          this.backoffUntil - this.now()
-        );
-        await this.sleep(delay, this.controller.signal);
-      }
+      await Promise.all([this.collect(true), this.persistPeriodically()]);
     } catch {
       // stop() interrupts sleep/fetch; an unexpected loop failure is visible to readers.
       if (!this.controller.signal.aborted) {
-        this.snapshot = {
-          ...this.snapshot,
-          error: "Transit collection stopped; restart the server to retry",
-        };
+        this.fatalError =
+          "Transit collection stopped; restart the server to retry";
+        this.controller.abort();
+        this.publish();
       }
     }
   }
 
-  /** Public for deterministic verification and an optional external scheduler. */
+  /** Drain due areas and their new children once; start() refreshes continuously. */
   async sweep(): Promise<void> {
     if (
       this.running ||
@@ -225,108 +254,148 @@ export class TransitCollector {
     ) {
       return;
     }
+    await this.collect(false);
+  }
+
+  private nextCell(attempted: Set<RadarCell> | null): RadarCell | undefined {
+    let next: RadarCell | undefined;
+    for (const cell of this.cells) {
+      if (
+        !cell.inFlight &&
+        !attempted?.has(cell) &&
+        (!next || cell.nextAt < next.nextAt)
+      ) {
+        next = cell;
+      }
+    }
+    return next;
+  }
+
+  private async collect(continuous: boolean): Promise<void> {
     this.running = true;
-    let successes = 0;
-    let error: string | null = null;
-    let nextCell = 0;
+    const attempted = continuous ? null : new Set<RadarCell>();
     try {
       const worker = async () => {
-        while (
-          !this.controller.signal.aborted &&
-          this.now() >= this.backoffUntil
-        ) {
-          // Claim synchronously before waiting so workers never repeat a cell.
-          const index = nextCell;
-          nextCell += 1;
-          const cell = this.cells[index];
-          if (!cell) {
-            return;
-          }
-          const observedAt = await this.waitForRequestSlot();
-          if (observedAt === null) {
-            return;
-          }
-          try {
-            const data = await this.fetchCell(cell);
-            const movements = normalizeRadar(data, observedAt);
-            for (const vehicle of movements) {
-              const previous = this.vehicles.get(vehicle.id);
-              if (!previous || previous.observedAt <= vehicle.observedAt) {
-                this.vehicles.set(vehicle.id, vehicle);
-              }
+        while (!this.controller.signal.aborted) {
+          const cell = this.nextCell(attempted);
+          const dueAt = Math.max(cell?.nextAt ?? Infinity, this.backoffUntil);
+          if (!cell || dueAt > this.now()) {
+            if (!continuous) {
+              return;
             }
-            const capped = data.movements.length >= RADAR_RESULTS;
-            this.cellState.set(index, {
-              updatedAt: observedAt,
-              succeeded: true,
-              capped,
-            });
-            successes += 1;
-            this.snapshot = {
-              ...this.snapshot,
-              // Completion order differs from request order. Every accepted
-              // response must advance the HTTP snapshot's cache identity.
-              updatedAt: Math.max(
-                this.now(),
-                (this.snapshot.updatedAt ?? 0) + 1
-              ),
-              realtimeDataUpdatedAt:
-                typeof data.realtimeDataUpdatedAt === "number" &&
-                Number.isFinite(data.realtimeDataUpdatedAt) &&
-                data.realtimeDataUpdatedAt >= 0
-                  ? Math.max(
-                      this.snapshot.realtimeDataUpdatedAt ?? 0,
-                      data.realtimeDataUpdatedAt * 1000
-                    )
-                  : this.snapshot.realtimeDataUpdatedAt,
-              error,
-            };
-            this.publish();
-          } catch (error_) {
-            this.cellState.set(index, {
-              updatedAt: observedAt,
-              succeeded: false,
-              capped: false,
-            });
-            error =
-              error_ instanceof Error
-                ? error_.message
-                : "Could not read VBB movements";
-            this.snapshot = { ...this.snapshot, error };
-            this.publish();
+            // Recheck soon: another worker can add children or finish an area.
+            await this.sleep(
+              Math.min(1000, dueAt - this.now()),
+              this.controller.signal
+            );
+            continue;
+          }
+          // Claim before awaiting the shared request slot.
+          cell.inFlight = true;
+          attempted?.add(cell);
+          try {
+            await this.collectCell(cell);
+          } finally {
+            cell.inFlight = false;
           }
         }
       };
-      await Promise.all(
-        Array.from(
-          { length: Math.min(this.concurrency, this.cells.length) },
-          worker
-        )
-      );
-      if (successes === 0) {
-        this.failedSweeps += 1;
-        this.backoffUntil = Math.max(
-          this.backoffUntil,
-          this.now() +
-            Math.min(
-              MAX_RETRY_AFTER_MS,
-              TRANSIT_POLL_INTERVAL_MS * 2 ** this.failedSweeps
-            )
-        );
-      } else {
-        this.failedSweeps = 0;
-      }
-      this.snapshot = { ...this.snapshot, error };
-      this.publish();
-      try {
-        const persisted = { ...this.snapshot, storage: "disk" as const };
-        await this.storage.save(persisted);
-        this.snapshot = persisted;
-      } catch {
-        this.snapshot = { ...this.snapshot, storage: "memory" };
+      await Promise.all(Array.from({ length: this.concurrency }, worker));
+      if (!continuous) {
+        await this.persist();
       }
     } finally {
       this.running = false;
+    }
+  }
+
+  private async collectCell(cell: RadarCell): Promise<void> {
+    const observedAt = await this.waitForRequestSlot();
+    if (observedAt === null) {
+      return;
+    }
+    try {
+      const data = await this.fetchCell(cell.bounds);
+      if (this.controller.signal.aborted) {
+        return;
+      }
+      for (const vehicle of normalizeRadar(data, observedAt)) {
+        const previous = this.vehicles.get(vehicle.id);
+        if (!previous || previous.observedAt <= vehicle.observedAt) {
+          this.vehicles.set(vehicle.id, vehicle);
+        }
+      }
+      cell.updatedAt = observedAt;
+      cell.succeeded = true;
+      cell.capped = data.movements.length >= RADAR_RESULTS;
+      cell.error = null;
+      cell.failures = 0;
+      cell.nextAt = Math.max(
+        this.now() + 1000,
+        observedAt + TRANSIT_POLL_INTERVAL_MS
+      );
+      if (
+        cell.capped &&
+        cell.depth < MAX_RADAR_DEPTH &&
+        this.cells.size + 3 <= MAX_RADAR_CELLS
+      ) {
+        this.cells.delete(cell);
+        for (const bounds of splitBounds(cell.bounds)) {
+          const child = radarCell(bounds, cell.depth + 1, this.now());
+          // Until all children respond, the parent's truncated result is incomplete.
+          child.capped = true;
+          this.cells.add(child);
+        }
+      }
+      this.snapshot = {
+        ...this.snapshot,
+        // Completion order can differ from request order; every response changes the ETag.
+        updatedAt: Math.max(this.now(), (this.snapshot.updatedAt ?? 0) + 1),
+        realtimeDataUpdatedAt:
+          typeof data.realtimeDataUpdatedAt === "number" &&
+          Number.isFinite(data.realtimeDataUpdatedAt) &&
+          data.realtimeDataUpdatedAt >= 0
+            ? Math.max(
+                this.snapshot.realtimeDataUpdatedAt ?? 0,
+                data.realtimeDataUpdatedAt * 1000
+              )
+            : this.snapshot.realtimeDataUpdatedAt,
+      };
+    } catch (error) {
+      if (this.controller.signal.aborted) {
+        return;
+      }
+      cell.succeeded = false;
+      cell.error =
+        error instanceof Error ? error.message : "Could not read VBB movements";
+      cell.failures += 1;
+      cell.nextAt =
+        this.now() +
+        Math.min(
+          MAX_RETRY_AFTER_MS,
+          AREA_RETRY_MS * 2 ** Math.min(cell.failures - 1, 6)
+        );
+    }
+    this.publish();
+  }
+
+  private async persist(): Promise<void> {
+    this.publish();
+    try {
+      await this.storage.save({ ...this.snapshot, storage: "disk" });
+      // Requests keep publishing while disk writes are pending.
+      this.snapshot = { ...this.snapshot, storage: "disk" };
+    } catch {
+      this.snapshot = { ...this.snapshot, storage: "memory" };
+    }
+  }
+
+  private async persistPeriodically(): Promise<void> {
+    while (!this.controller.signal.aborted) {
+      await this.sleep(TRANSIT_POLL_INTERVAL_MS, this.controller.signal);
+      if (!this.controller.signal.aborted) {
+        await this.persist();
+      }
     }
   }
 
@@ -384,7 +453,7 @@ export class TransitCollector {
       headers: { accept: "application/json" },
       signal: AbortSignal.any([
         this.controller.signal,
-        AbortSignal.timeout(10_000),
+        AbortSignal.timeout(RADAR_TIMEOUT_MS),
       ]),
     });
     if (response.status === 429) {

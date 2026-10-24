@@ -3,13 +3,30 @@ import { useEffect } from "react";
 
 import { haversine } from "@/lib/geo";
 import { createResizeMovementGuard } from "@/map/camera-movement";
+import type { TransitVehicle } from "@/map/transit/model";
 import { sampleVehicle } from "@/map/transit/motion";
 import type { TransitPose } from "@/map/transit/motion";
+import { renderedTransitPose } from "@/map/transit/rendered-poses";
 import { useTransitStore } from "@/map/transit/store";
 
 const FOLLOW_EASE_ID = "transit-follow";
 const CAMERA_INTERVAL_MS = 100;
 const linear = (value: number) => value;
+
+function followPosition(
+  map: MapLibreMap,
+  vehicle: TransitVehicle | undefined,
+  now: number,
+  time: number,
+  pose: TransitPose
+): TransitPose | null {
+  if (!vehicle) {
+    return null;
+  }
+  return (
+    renderedTransitPose(map, vehicle, time) ?? sampleVehicle(vehicle, now, pose)
+  );
+}
 
 /** Acquire a useful close view, then preserve orientation while following. */
 export function startVehicleFollow(map: MapLibreMap): () => void {
@@ -82,7 +99,13 @@ export function startVehicleFollow(map: MapLibreMap): () => void {
     if (state.mode === "replay" && state.replayStatus === "loading") {
       return;
     }
-    const position = vehicle && sampleVehicle(vehicle, state.clockTime, pose);
+    const position = followPosition(
+      map,
+      vehicle,
+      state.mode === "live" ? Date.now() : state.clockTime,
+      time,
+      pose
+    );
     if (!position) {
       state.stopFollowing();
       return;

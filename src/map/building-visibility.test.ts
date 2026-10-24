@@ -159,17 +159,20 @@ it.each(QUALITIES)(
 );
 
 it.each(QUALITIES)(
-  "%s produces valid opaque styles with feature-only building attributes",
+  "%s produces valid opaque styles with stable wall shading",
   (quality) => {
     for (const paletteId of PALETTE_ORDER) {
       const style = perspectiveStyle(quality, paletteId);
       expect(validateStyleMin(style).map((error) => error.message)).toEqual([]);
       const layer = extrusionLayer(quality, paletteId);
       expect(layer.paint?.["fill-extrusion-opacity"]).toBe(1);
+      expect(layer.paint?.["fill-extrusion-vertical-gradient"]).toBe(false);
+      expect(layer.paint?.["fill-extrusion-color"]).toBe(
+        getPalette(paletteId).buildingMid
+      );
       for (const property of [
         "fill-extrusion-height",
         "fill-extrusion-base",
-        "fill-extrusion-color",
       ] as const) {
         expect(buildingExpression(layer, property).kind).toBe("source");
       }

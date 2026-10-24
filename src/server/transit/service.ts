@@ -24,11 +24,23 @@ export function getTransitHistory(): TransitHistory {
 }
 
 export function getTransitCollector(): TransitCollector {
-  if (!shared.berlinTransitCollector) {
-    shared.berlinTransitCollector = new TransitCollector({
-      storage: createTransitStorage(transitDirectory()),
-    });
-    shared.berlinTransitCollector.start();
+  // Development reloads must retire the old scheduler rather than keep its class alive.
+  const previous = shared.berlinTransitCollector;
+  if (previous?.constructor === TransitCollector) {
+    return previous;
   }
-  return shared.berlinTransitCollector;
+  previous?.stop();
+  const collector = new TransitCollector({
+    storage: createTransitStorage(transitDirectory()),
+  });
+  shared.berlinTransitCollector = collector;
+  collector.start();
+  return collector;
+}
+
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    shared.berlinTransitCollector?.stop();
+    delete shared.berlinTransitCollector;
+  });
 }

@@ -2,25 +2,30 @@
 import { MercatorCoordinate } from "maplibre-gl";
 import type { Matrix4 } from "three";
 
-/** Fixed for the lifetime of the scene; camera movements never change it. */
-export const VEHICLE_MODEL_ORIGIN = Object.freeze([13.405, 52.52] as const);
+export interface VehicleModelOrigin {
+  readonly x: number;
+  readonly y: number;
+  readonly z: number;
+  readonly unitsPerMeter: number;
+  readonly latitudeCosine: number;
+}
 
-const origin = MercatorCoordinate.fromLngLat([
-  VEHICLE_MODEL_ORIGIN[0],
-  VEHICLE_MODEL_ORIGIN[1],
-]);
+/** Share one nearby origin between every instance and its projection matrix. */
+export function createVehicleModelOrigin(coordinates: {
+  lng: number;
+  lat: number;
+}): VehicleModelOrigin {
+  const mercator = MercatorCoordinate.fromLngLat(coordinates);
+  return {
+    x: mercator.x,
+    y: mercator.y,
+    z: mercator.z,
+    unitsPerMeter: mercator.meterInMercatorCoordinateUnits(),
+    latitudeCosine: Math.cos((coordinates.lat * Math.PI) / 180),
+  };
+}
 
-export const VEHICLE_MODEL_MERCATOR_ORIGIN = Object.freeze({
-  x: origin.x,
-  y: origin.y,
-  z: origin.z,
-});
-export const VEHICLE_MODEL_ORIGIN_UNITS_PER_METER =
-  origin.meterInMercatorCoordinateUnits();
-
-const ORIGIN_LATITUDE_COSINE = Math.cos(
-  (VEHICLE_MODEL_ORIGIN[1] * Math.PI) / 180
-);
+const DEFAULT_ORIGIN = createVehicleModelOrigin({ lng: 13.405, lat: 52.52 });
 const MAX_MERCATOR_LATITUDE = 85.0511287798066;
 
 /**
@@ -28,7 +33,7 @@ const MAX_MERCATOR_LATITUDE = 85.0511287798066;
  * The output scene axes are X east, Y up and Z north, in origin-scaled metres.
  * Model size and altitude include Mercator's latitude-dependent metre scale.
  *
- * The renderer must apply the same fixed scene-to-Mercator anchor to its camera:
+ * The renderer must apply the same scene-to-Mercator anchor to its camera:
  * T(mercatorOrigin) * S(originUnitsPerMeter) * Rx(+PI/2). In components this is
  * (origin.x + s*x, origin.y - s*z, s*y). Apply that axis conversion exactly once;
  * do not also rotate or reflect the model. Compass bearing 0 faces north (+Z),
@@ -38,7 +43,8 @@ export function setVehicleModelMatrix(
   target: Matrix4,
   coordinates: readonly [number, number],
   bearingDegrees: number,
-  altitudeMeters = 0
+  altitudeMeters = 0,
+  origin: VehicleModelOrigin = DEFAULT_ORIGIN
 ): Matrix4 {
   const longitude = coordinates[0];
   const latitude = coordinates[1];
@@ -63,13 +69,9 @@ export function setVehicleModelMatrix(
     (180 -
       (180 / Math.PI) * Math.log(Math.tan(Math.PI / 4 + latitudeRadians / 2))) /
     360;
-  const east =
-    (mercatorX - VEHICLE_MODEL_MERCATOR_ORIGIN.x) /
-    VEHICLE_MODEL_ORIGIN_UNITS_PER_METER;
-  const north =
-    (VEHICLE_MODEL_MERCATOR_ORIGIN.y - mercatorY) /
-    VEHICLE_MODEL_ORIGIN_UNITS_PER_METER;
-  const scale = ORIGIN_LATITUDE_COSINE / Math.cos(latitudeRadians);
+  const east = (mercatorX - origin.x) / origin.unitsPerMeter;
+  const north = (origin.y - mercatorY) / origin.unitsPerMeter;
+  const scale = origin.latitudeCosine / Math.cos(latitudeRadians);
   const yaw = (bearingDegrees * Math.PI) / 180;
   const cosine = Math.cos(yaw) * scale;
   const sine = Math.sin(yaw) * scale;

@@ -368,29 +368,6 @@ function landuseColor(p: Palette): ExpressionSpecification {
 // Buildings
 // ---------------------------------------------------------------------------
 
-/**
- * Roof colour as a function of height. Even in the restrained themes this
- * carries a lot of the readability: it is what makes a skyline look like a
- * skyline instead of a field of identical blocks.
- */
-function buildingColor(palette: Palette): ExpressionSpecification {
-  return [
-    "interpolate",
-    ["linear"],
-    ["coalesce", ["get", "render_height"], MASSING_HEIGHT],
-    0,
-    palette.buildingLow,
-    12,
-    palette.buildingLow,
-    30,
-    palette.buildingMid,
-    70,
-    palette.buildingHigh,
-    150,
-    palette.buildingLandmark,
-  ];
-}
-
 /** z13 massing blobs have no attributes, so they fall back to a flat height. */
 const BUILDING_HEIGHT: ExpressionSpecification = [
   "coalesce",
@@ -406,8 +383,7 @@ const BUILDING_BASE: ExpressionSpecification = [
 
 function buildingLayers(
   palette: Palette,
-  view: ViewMode,
-  quality: QualityLevel
+  view: ViewMode
 ): LayerSpecification[] {
   if (view === "flat") {
     return [
@@ -451,17 +427,19 @@ function buildingLayers(
       // `hide_3d` footprints are already covered by separate building parts.
       filter: ["!=", ["get", "hide_3d"], true],
       paint: {
-        "fill-extrusion-color": buildingColor(palette),
-        // Keep every paint attribute feature-only. Coarse blobs use the
+        // Building parts overlap in the source data. Use one surface material
+        // so coincident walls/roofs agree regardless of their feature height.
+        "fill-extrusion-color": palette.buildingMid,
+        // Keep heights feature-only. Coarse blobs use the
         // fallback height; elevated parts keep their roof at or above the base.
         "fill-extrusion-height": ["max", BUILDING_HEIGHT, BUILDING_BASE],
         "fill-extrusion-base": BUILDING_BASE,
-        // Even slight extrusion transparency requires a second complete draw.
         "fill-extrusion-opacity": 1,
-        // The per-wall gradient is an extra shader branch on every fragment
-        // of the most overdraw-heavy layer on the map; the height colour ramp
-        // already separates walls from ground, so lower tiers skip it.
-        "fill-extrusion-vertical-gradient": quality === "quality",
+        // Overlapping building parts can share a wall but have different
+        // heights. A height-dependent wall gradient gives those coincident
+        // surfaces conflicting shades, exposing stripes as the camera moves.
+        // Directional lighting still shows the shape and real building heights.
+        "fill-extrusion-vertical-gradient": false,
       },
     },
   ];
@@ -698,7 +676,7 @@ function labelLayers(
 // ---------------------------------------------------------------------------
 
 export function buildStyle(opts: BuildStyleOptions): StyleSpecification {
-  const { palette, source, view, quality } = opts;
+  const { palette, source, view } = opts;
 
   const layers: LayerSpecification[] = [
     // OpenMapTiles has no land polygon at city zooms - the ground *is* the
@@ -815,7 +793,7 @@ export function buildStyle(opts: BuildStyleOptions): StyleSpecification {
       "source-layer": "boundary",
       type: "line",
     },
-    ...buildingLayers(palette, view, quality),
+    ...buildingLayers(palette, view),
     ...labelLayers(palette, opts),
   ];
 

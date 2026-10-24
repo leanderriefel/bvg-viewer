@@ -192,8 +192,8 @@ function FeedDetails({
       </summary>
       <div className="space-y-2 pt-3 leading-relaxed">
         <p>
-          Positions follow VBB movement estimates. U-Bahn uses outlined X-ray
-          markers and dashed routes, including on above-ground sections.
+          Positions follow VBB movement estimates. All vehicles, including
+          U-Bahn, appear above ground.
         </p>
         <p>
           Delay figures cover vehicles with reported data; an unknown delay is
@@ -201,8 +201,9 @@ function FeedDetails({
         </p>
         {snapshot?.coverage.capped ? (
           <p>
-            Some busy areas reached the feed limit; additional vehicles may be
-            running.
+            Some areas reached the feed limit. Smaller areas are collected
+            automatically where possible; coverage remains partial until they
+            return complete results.
           </p>
         ) : null}
         <p>
@@ -212,8 +213,8 @@ function FeedDetails({
         </p>
         {(error || snapshot?.error) && (
           <p className="text-amber-700 dark:text-amber-400">
-            Some updates are delayed. Vehicles follow their latest forecast
-            while we retry.
+            Some areas could not refresh and are retrying independently. Other
+            areas keep updating; vehicles use their latest available forecast.
           </p>
         )}
         <a

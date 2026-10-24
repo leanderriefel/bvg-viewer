@@ -6,16 +6,27 @@ import { MAX_VEHICLE_AGE_MS, normalizeRadar } from "@/map/transit/model";
 import type { TransitSnapshot } from "@/map/transit/model";
 
 import {
+  AREA_RETRY_MS,
   RADAR_RESULTS,
+  RADAR_TIMEOUT_MS,
   REQUEST_SPACING_MS,
+  TRANSIT_POLL_INTERVAL_MS,
   TransitCollector,
   createRadarCells,
   retryAfterMilliseconds,
 } from "./collector";
 
 const CELL: BBox = [13.3, 52.4, 13.4, 52.5];
+const collectors = new Set<TransitCollector>();
 
-afterEach(() => vi.useRealTimers());
+afterEach(() => {
+  for (const collector of collectors) {
+    collector.stop();
+  }
+  collectors.clear();
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+});
 
 function uninitializedResponse(_response: Response): never {
   throw new Error("Deferred response was not initialized");
@@ -37,7 +48,7 @@ function deferredResponse() {
   return { promise, resolve: (response: Response) => complete(response) };
 }
 
-function concurrentSetup(cellCount: number) {
+function concurrentSetup(cellCount: number, continuous = false) {
   vi.useFakeTimers();
   vi.setSystemTime(1_000_000);
   const responses: ReturnType<typeof deferredResponse>[] = [];
@@ -65,6 +76,10 @@ function concurrentSetup(cellCount: number) {
     cells: Array.from({ length: cellCount }, () => CELL),
     sleep: fakeTimerSleep,
   });
+  collectors.add(collector);
+  if (continuous) {
+    collector.start();
+  }
   return { collector, responses, requestedAt, request, peak: () => peak };
 }
 
@@ -137,7 +152,9 @@ describe("shared Berlin transit collection", () => {
     await collector.sweep();
     const snapshot = collector.getSnapshot();
     expect(snapshot.vehicles).toHaveLength(1);
-    expect(snapshot.vehicles[0].observedAt).toBe(1_001_000);
+    expect(snapshot.vehicles[0].observedAt).toBe(
+      1_000_000 + REQUEST_SPACING_MS
+    );
     expect(snapshot.status).toBe("live");
     expect(snapshot.coverage).toEqual({ total: 2, succeeded: 2, capped: 0 });
     expect(requestedAt[1] - requestedAt[0]).toBeGreaterThanOrEqual(
@@ -190,15 +207,99 @@ describe("shared Berlin transit collection", () => {
     });
   });
 
-  it("marks truncated cells as partial coverage", async () => {
-    const { collector } = setup([
+  it("replaces a truncated area with four gap-free children and discovers additional vehicles", async () => {
+    const { collector, requestedUrls, request, advance } = setup([
       Response.json(radar("trip-1", RADAR_RESULTS)),
+      Response.json(radar("trip-1")),
+      Response.json(radar("trip-2")),
+      Response.json(radar("trip-3")),
+      Response.json(radar("trip-4")),
+      ...Array.from({ length: 4 }, () => Response.json(radar())),
     ]);
     await collector.sweep();
     expect(collector.getSnapshot()).toMatchObject({
-      status: "degraded",
-      coverage: { capped: 1 },
+      status: "live",
+      coverage: { total: 4, succeeded: 4, capped: 0 },
     });
+    expect(collector.getSnapshot().vehicles).toHaveLength(4);
+    const middleLongitude = (CELL[0] + CELL[2]) / 2;
+    const middleLatitude = (CELL[1] + CELL[3]) / 2;
+    const bounds = requestedUrls
+      .slice(1)
+      .map((url) =>
+        ["west", "south", "east", "north"].map((key) =>
+          Number(url.searchParams.get(key))
+        )
+      );
+    expect(bounds).toEqual([
+      [CELL[0], CELL[1], middleLongitude, middleLatitude],
+      [middleLongitude, CELL[1], CELL[2], middleLatitude],
+      [CELL[0], middleLatitude, middleLongitude, CELL[3]],
+      [middleLongitude, middleLatitude, CELL[2], CELL[3]],
+    ]);
+    advance(TRANSIT_POLL_INTERVAL_MS);
+    await collector.sweep();
+    expect(request).toHaveBeenCalledTimes(9);
+    // Refinement persists: never re-fetch the truncated parent.
+    expect(requestedUrls.slice(5).map((url) => url.search)).toEqual(
+      requestedUrls.slice(1, 5).map((url) => url.search)
+    );
+  });
+
+  it("refreshes and retries an area while another area is still waiting for its first response", async () => {
+    const fixture = concurrentSetup(2, true);
+    await vi.advanceTimersByTimeAsync(REQUEST_SPACING_MS);
+    fixture.responses[1].resolve(Response.json(radar("healthy")));
+    await vi.advanceTimersByTimeAsync(TRANSIT_POLL_INTERVAL_MS);
+    expect(fixture.request).toHaveBeenCalledTimes(3);
+    fixture.responses[2].resolve(new Response(null, { status: 503 }));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fixture.collector.getSnapshot().error).toContain("503");
+    await vi.advanceTimersByTimeAsync(AREA_RETRY_MS);
+    expect(fixture.request).toHaveBeenCalledTimes(4);
+    fixture.responses[3].resolve(Response.json(radar("recovered")));
+    fixture.responses[0].resolve(Response.json(radar("slow")));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fixture.collector.getSnapshot()).toMatchObject({
+      status: "live",
+      error: null,
+      coverage: { total: 2, succeeded: 2, capped: 0 },
+    });
+  });
+
+  it("keeps coverage partial until all children have returned complete results", async () => {
+    const fixture = concurrentSetup(1, true);
+    await vi.advanceTimersByTimeAsync(0);
+    fixture.responses[0].resolve(Response.json(radar("parent", RADAR_RESULTS)));
+    await vi.advanceTimersByTimeAsync(4 * REQUEST_SPACING_MS);
+    expect(fixture.request).toHaveBeenCalledTimes(5);
+    expect(fixture.collector.getSnapshot()).toMatchObject({
+      status: "degraded",
+      coverage: { total: 4, succeeded: 0, capped: 4 },
+    });
+    fixture.responses[1].resolve(new Response(null, { status: 503 }));
+    for (const response of fixture.responses.slice(2)) {
+      response.resolve(Response.json(radar()));
+    }
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fixture.collector.getSnapshot()).toMatchObject({
+      status: "degraded",
+      coverage: { total: 4, succeeded: 3, capped: 1 },
+      error: "VBB movements unavailable (HTTP 503)",
+    });
+  });
+
+  it("accepts responses after ten seconds with a 45-second request deadline", async () => {
+    const timeout = vi.spyOn(AbortSignal, "timeout");
+    const fixture = concurrentSetup(1);
+    const sweep = fixture.collector.sweep();
+    await vi.advanceTimersByTimeAsync(20_000);
+    expect(timeout).toHaveBeenCalledWith(RADAR_TIMEOUT_MS);
+    fixture.responses[0].resolve(Response.json(radar()));
+    await sweep;
+    expect(fixture.collector.getSnapshot().status).toBe("live");
+    const options = timeout.mock.results[0].value;
+    expect(options.aborted).toBe(false);
   });
 
   it("rejects malformed upstream data instead of reporting a successful empty area", async () => {
@@ -312,7 +413,7 @@ describe("shared Berlin transit collection", () => {
   it("bounds concurrent requests, spaces every start, and accepts out-of-order results monotonically", async () => {
     const fixture = concurrentSetup(6);
     const sweep = fixture.collector.sweep();
-    await vi.advanceTimersByTimeAsync(3000);
+    await vi.advanceTimersByTimeAsync(3 * REQUEST_SPACING_MS);
     expect(fixture.request).toHaveBeenCalledTimes(4);
     expect(fixture.peak()).toBe(4);
     await fixture.collector.sweep();
@@ -331,7 +432,7 @@ describe("shared Berlin transit collection", () => {
       fixture.requestedAt[3]
     );
 
-    await vi.advanceTimersByTimeAsync(2000);
+    await vi.advanceTimersByTimeAsync(2 * REQUEST_SPACING_MS);
     expect(fixture.request).toHaveBeenCalledTimes(6);
     for (const response of fixture.responses) {
       response.resolve(Response.json(radar()));
@@ -367,7 +468,7 @@ describe("shared Berlin transit collection", () => {
   it("allows requests already in flight to settle after a global 429 without claiming more work", async () => {
     const fixture = concurrentSetup(8);
     const sweep = fixture.collector.sweep();
-    await vi.advanceTimersByTimeAsync(3000);
+    await vi.advanceTimersByTimeAsync(3 * REQUEST_SPACING_MS);
     fixture.responses[0].resolve(
       new Response(null, {
         status: 429,

@@ -8,6 +8,55 @@ export interface TransitPose {
   bearing: number;
 }
 
+const forecastSpeeds = new WeakMap<TransitFrame[], Float64Array>();
+
+function segmentSpeeds(frames: TransitFrame[]): Float64Array {
+  const cached = forecastSpeeds.get(frames);
+  if (cached) {
+    return cached;
+  }
+  const speeds = new Float64Array(Math.max(0, frames.length - 1));
+  for (let index = 0; index < speeds.length; index += 1) {
+    const from = frames[index];
+    const to = frames[index + 1];
+    const east =
+      (to.coordinates[0] - from.coordinates[0]) *
+      111_320 *
+      Math.cos(((from.coordinates[1] + to.coordinates[1]) * Math.PI) / 360);
+    const north = (to.coordinates[1] - from.coordinates[1]) * 111_320;
+    const distance = Math.hypot(east, north);
+    speeds[index] =
+      distance < 1 || to.at <= from.at ? 0 : distance / (to.at - from.at);
+  }
+  forecastSpeeds.set(frames, speeds);
+  return speeds;
+}
+
+/** Blend speed along each supplied segment, retaining every bend and dwell. */
+export function forecastTravelFraction(
+  frames: TransitFrame[],
+  index: number,
+  fraction: number
+): number {
+  const speeds = segmentSpeeds(frames);
+  const speed = speeds[index];
+  if (!speed || fraction === 0 || fraction === 1) {
+    return fraction;
+  }
+  const previous = speeds[index - 1] ?? speed;
+  const next = speeds[index + 1] ?? speed;
+  // Harmonic means give adjacent segments the same speed at their shared
+  // vertex, reach zero at dwell frames, and keep progress monotone.
+  const incoming = (2 * previous) / (previous + speed);
+  const outgoing = (2 * next) / (next + speed);
+  const remaining = 1 - fraction;
+  return (
+    fraction * fraction * (3 - 2 * fraction) +
+    incoming * fraction * remaining * remaining -
+    outgoing * fraction * fraction * remaining
+  );
+}
+
 function heading(from: TransitFrame, to: TransitFrame): number {
   const midLatitude =
     ((from.coordinates[1] + to.coordinates[1]) * Math.PI) / 360;
@@ -108,15 +157,22 @@ export function sampleVehicle(
     return null;
   }
   let index = 0;
-  while (index < frames.length - 2 && frames[index + 1].at <= now) {
-    index += 1;
+  let upper = Math.max(0, frames.length - 2);
+  while (index < upper) {
+    const middle = Math.ceil((index + upper) / 2);
+    if (frames[middle].at <= now) {
+      index = middle;
+    } else {
+      upper = middle - 1;
+    }
   }
   const from = frames[index];
   const to = frames[index + 1] ?? from;
-  const fraction =
+  const linearFraction =
     to.at > from.at
       ? Math.max(0, Math.min(1, (now - from.at) / (to.at - from.at)))
       : 0;
+  const fraction = forecastTravelFraction(frames, index, linearFraction);
   const result = target ?? { coordinates: [0, 0], bearing: 0 };
   result.coordinates[0] =
     from.coordinates[0] + (to.coordinates[0] - from.coordinates[0]) * fraction;

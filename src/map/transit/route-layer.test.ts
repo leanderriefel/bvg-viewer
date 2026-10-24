@@ -2,6 +2,7 @@ import type { Map as MapLibreMap } from "maplibre-gl";
 import { expect, it, vi } from "vite-plus/test";
 
 import { bindTransitRoute } from "./route-layer";
+import { useTransitStore } from "./store";
 
 function mapSurface() {
   const sources = new Map<string, { setData: ReturnType<typeof vi.fn> }>();
@@ -10,7 +11,7 @@ function mapSurface() {
   const surface = {
     getStyle: vi.fn(() => ({ version: 8 })),
     isStyleLoaded: vi.fn(() => false),
-    getSource: (id: string) => sources.get(id),
+    getSource: vi.fn((id: string) => sources.get(id)),
     addSource: (id: string) => {
       sources.set(id, { setData: vi.fn() });
     },
@@ -72,4 +73,20 @@ it("restores route layers after a restyle and removes subscriptions on disposal"
   expect(layers.size).toBe(0);
   expect(listeners.get("style.load")?.size).toBe(0);
   expect(listeners.get("remove")?.size).toBe(0);
+});
+
+it("ignores clock ticks but updates the route when selection changes", () => {
+  const initial = useTransitStore.getState();
+  const { map, surface } = mapSurface();
+  const unbind = bindTransitRoute(map);
+  try {
+    surface.getSource.mockClear();
+    useTransitStore.setState({ clockTime: initial.clockTime + 50 });
+    expect(surface.getSource).not.toHaveBeenCalled();
+    useTransitStore.getState().selectVehicle("another-trip");
+    expect(surface.getSource).toHaveBeenCalledOnce();
+  } finally {
+    unbind();
+    useTransitStore.setState(initial);
+  }
 });

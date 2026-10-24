@@ -21,7 +21,7 @@ interface CachedRoute {
   expiresAt: number;
 }
 
-/** At most 40 additional requests/minute, on top of the radar's normal 32. */
+/** At most 40 additional requests/minute, on top of radar's maximum 48. */
 export class TripRoutes {
   private readonly request: typeof fetch;
   private readonly now: () => number;

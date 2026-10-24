@@ -99,6 +99,10 @@ export function AppShell({ entered, onProgress }: Props) {
               <div className="map-diagnostics pointer-events-auto">
                 <StatsHud />
               </div>
+              {/* oxlint-disable-next-line react-doctor/no-tiny-text -- Intentionally tiny, noninteractive model attribution. */}
+              <p className="map-model-credit bg-background/80 text-muted-foreground rounded-sm px-1 py-0.5 text-[9px] leading-tight">
+                Train models done by 6.1 Sol in Blender
+              </p>
               <TransitPanel />
             </div>
           )}

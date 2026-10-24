@@ -254,7 +254,9 @@ export function useMapInstance(args: {
       // step; a hard cut is free and reads fine at map speeds.
       fadeDuration: 0,
       refreshExpiredTiles: false,
-      cancelPendingTileRequestsWhileZooming: false,
+      // Rapid zoom gestures should spend workers on the destination tiles,
+      // rather than finish requests for zoom levels the camera has left.
+      cancelPendingTileRequestsWhileZooming: true,
       // Size is only a ceiling: MapLibre also multiplies viewport tile count
       // by zoom levels (default 5). Raise both to retain the warmed geometry.
       maxTileCacheSize: cacheSize,

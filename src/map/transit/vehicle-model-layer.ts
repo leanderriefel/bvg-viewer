@@ -32,9 +32,8 @@ import {
   mergeVehicleModelGeometry,
 } from "./vehicle-model-geometry";
 import {
+  createVehicleModelOrigin,
   setVehicleModelMatrix,
-  VEHICLE_MODEL_MERCATOR_ORIGIN,
-  VEHICLE_MODEL_ORIGIN_UNITS_PER_METER,
 } from "./vehicle-model-transform";
 
 const MAX_MODEL_VEHICLES = 256;
@@ -109,20 +108,9 @@ export function createVehicleModels(
   const material = fleetMaterial();
   const loader = new GLTFLoader();
   const abort = new AbortController();
-  const anchor = new Matrix4()
-    .makeTranslation(
-      VEHICLE_MODEL_MERCATOR_ORIGIN.x,
-      VEHICLE_MODEL_MERCATOR_ORIGIN.y,
-      VEHICLE_MODEL_MERCATOR_ORIGIN.z
-    )
-    .multiply(
-      new Matrix4().makeScale(
-        VEHICLE_MODEL_ORIGIN_UNITS_PER_METER,
-        VEHICLE_MODEL_ORIGIN_UNITS_PER_METER,
-        VEHICLE_MODEL_ORIGIN_UNITS_PER_METER
-      )
-    )
-    .multiply(new Matrix4().makeRotationX(Math.PI / 2));
+  let origin = createVehicleModelOrigin(map.getCenter());
+  const anchor = new Matrix4();
+  const axes = new Matrix4().makeRotationX(Math.PI / 2);
   const matrix = new Matrix4();
   const batches = new Map<string, ModelBatch>();
   const requested = new Set<string>();
@@ -178,7 +166,7 @@ export function createVehicleModels(
       renderer.resetState();
       renderer.render(scene, camera);
       renderer.resetState();
-      // The existing 20 Hz transit loop owns repaint scheduling. A permanent
+      // The transit animation loop owns repaint scheduling. A permanent
       // repaint loop here would prevent destination preparation from going idle.
     },
     onRemove() {
@@ -309,6 +297,20 @@ export function createVehicleModels(
     restore,
     beginFrame(zoom) {
       enabled = zoom >= VEHICLE_MODEL_MIN_ZOOM && !contextLost;
+      if (enabled) {
+        // City-wide float32 translations lose the millimetre gaps between
+        // windows, doors and bodywork. Rebase the entire frame near the view;
+        // compose the geographic translation on the CPU at double precision.
+        origin = createVehicleModelOrigin(map.getCenter());
+        anchor
+          .makeScale(
+            origin.unitsPerMeter,
+            origin.unitsPerMeter,
+            origin.unitsPerMeter
+          )
+          .setPosition(origin.x, origin.y, origin.z)
+          .multiply(axes);
+      }
       count = 0;
       for (const batch of batches.values()) {
         batch.count = 0;
@@ -345,7 +347,7 @@ export function createVehicleModels(
         previous.dispose();
         batch.capacity = capacity;
       }
-      setVehicleModelMatrix(matrix, coordinates, bearing, 0.05);
+      setVehicleModelMatrix(matrix, coordinates, bearing, 0.05, origin);
       batch.mesh.setMatrixAt(batch.count, matrix);
       batch.count += 1;
       count += 1;

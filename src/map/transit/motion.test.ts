@@ -32,6 +32,65 @@ function vehicle(): TransitVehicle {
 }
 
 describe("predicted vehicle motion", () => {
+  it("keeps speed continuous across uneven forecast segments without leaving the path", () => {
+    const transit = vehicle();
+    transit.frames = [0, 0.0001, 0.0004, 0.0005].map((offset, index) => ({
+      at: OBSERVED_AT + index * 10_000,
+      coordinates: [13.4 + offset, 52.5],
+    }));
+    const longitude = (offset: number) =>
+      sampleVehicle(transit, OBSERVED_AT + offset)?.coordinates[0] ?? 0;
+    const vertex = longitude(10_000);
+    const incoming = vertex - longitude(9999);
+    const outgoing = longitude(10_001) - vertex;
+    expect(incoming).toBeGreaterThan(0);
+    expect(outgoing / incoming).toBeCloseTo(1, 3);
+    for (let index = 0; index < transit.frames.length - 1; index += 1) {
+      let [previous] = transit.frames[index].coordinates;
+      for (let step = 0; step <= 100; step += 1) {
+        const pose = sampleVehicle(
+          transit,
+          OBSERVED_AT + index * 10_000 + step * 100
+        );
+        expect(pose?.coordinates[1]).toBe(52.5);
+        expect(pose?.coordinates[0]).toBeGreaterThanOrEqual(previous);
+        expect(pose?.coordinates[0]).toBeLessThanOrEqual(
+          transit.frames[index + 1].coordinates[0]
+        );
+        previous = pose?.coordinates[0] ?? previous;
+      }
+    }
+  });
+
+  it("eases into and out of a dwell without creeping through the stop", () => {
+    const transit = vehicle();
+    transit.frames = [0, 0.001, 0.001, 0.002].map((offset, index) => ({
+      at: OBSERVED_AT + index * 10_000,
+      coordinates: [13.4 + offset, 52.5],
+    }));
+    expect(sampleVehicle(transit, OBSERVED_AT + 15_000)?.coordinates).toEqual([
+      13.401, 52.5,
+    ]);
+    const before = sampleVehicle(transit, OBSERVED_AT + 9990);
+    const after = sampleVehicle(transit, OBSERVED_AT + 20_010);
+    expect(Math.abs((before?.coordinates[0] ?? 0) - 13.401)).toBeLessThan(1e-8);
+    expect(Math.abs((after?.coordinates[0] ?? 0) - 13.401)).toBeLessThan(1e-8);
+  });
+
+  it("samples long forecasts accurately across forward and backward seeks", () => {
+    const transit = vehicle();
+    transit.frames = Array.from({ length: 129 }, (_, index) => ({
+      at: OBSERVED_AT + index * 100,
+      coordinates: [13.4 + index * 0.0001, 52.5],
+    }));
+    for (const offset of [12_750, 250, 6400, 0, 12_600]) {
+      const pose = sampleVehicle(transit, OBSERVED_AT + offset);
+      expect(pose?.coordinates[0]).toBeCloseTo(13.4 + offset * 0.000001, 10);
+      expect(pose?.coordinates[1]).toBe(52.5);
+      expect(pose?.bearing).toBeCloseTo(90);
+    }
+  });
+
   it("follows successive route segments without cutting across their corner", () => {
     const transit = vehicle();
     const eastbound = sampleVehicle(transit, OBSERVED_AT + 5000);
