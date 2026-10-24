@@ -7,11 +7,13 @@ import { useMapStore } from "@/map/store";
 import { getPalette } from "@/map/theme/palette";
 
 import { FeatureInspector } from "./feature-inspector";
+import { CubeIconC } from "./icons";
 import { MapCanvas } from "./map-canvas";
 import { MapControls, StatsHud } from "./map-hud";
 import { PlacesMenu } from "./places-menu";
 import { SearchCommand } from "./search-command";
 import { SettingsSheet } from "./settings-sheet";
+import { TourControls } from "./tour-controls";
 import { TransitPanel } from "./transit-panel";
 import { ViewControls } from "./view-controls";
 
@@ -39,6 +41,7 @@ export function AppShell({ entered, onProgress }: Props) {
   useThemeSync();
   const [controlsReady, setControlsReady] = useState(false);
   const onArrival = useCallback(() => setControlsReady(true), []);
+  const hasSelection = useMapStore((s) => s.selection !== null);
 
   useEffect(() => {
     registerServiceWorker();
@@ -60,33 +63,43 @@ export function AppShell({ entered, onProgress }: Props) {
           {/* One pointer-events-none overlay so the map keeps every drag and
               wheel event; each panel opts back in for itself. */}
           {controlsReady && (
-            <div className="world-controls pointer-events-none absolute inset-0 flex flex-col p-3 sm:p-4">
-              <header className="flex items-start justify-between gap-3">
-                <div className="pointer-events-auto flex items-center gap-2">
+            <div
+              className="world-controls map-interface pointer-events-none absolute inset-0"
+              data-selection={hasSelection}
+            >
+              <header className="map-navigator map-panel pointer-events-auto p-2.5">
+                <div className="flex items-center gap-2 pb-2">
+                  <span className="bg-primary text-primary-foreground flex size-7 items-center justify-center rounded-lg">
+                    <CubeIconC size={16} />
+                  </span>
+                  <h1 className="flex-1 text-sm font-semibold tracking-tight">
+                    Berlin{" "}
+                    <span className="text-muted-foreground font-normal">
+                      in 3D
+                    </span>
+                  </h1>
                   <PlacesMenu />
-                  <SearchCommand />
-                </div>
-
-                <div className="pointer-events-auto flex items-center gap-2">
-                  <ViewControls />
                   <SettingsSheet />
                 </div>
+                <SearchCommand />
               </header>
 
-              <div className="flex min-h-0 flex-1 items-start justify-between gap-3 pt-3">
-                <div className="pointer-events-none">
-                  <FeatureInspector />
-                </div>
-
-                <div className="pt-1">
-                  <MapControls />
-                </div>
+              <div className="map-view-controls pointer-events-auto">
+                <ViewControls />
               </div>
-
-              <footer className="flex items-end justify-end gap-3 pt-3 pb-3 md:justify-between">
+              <div className="map-tour">
+                <TourControls />
+              </div>
+              <div className="map-feature">
+                <FeatureInspector />
+              </div>
+              <div className="map-camera-controls">
+                <MapControls />
+              </div>
+              <div className="map-diagnostics pointer-events-auto">
                 <StatsHud />
-                <TransitPanel />
-              </footer>
+              </div>
+              <TransitPanel />
             </div>
           )}
         </MapCanvas>

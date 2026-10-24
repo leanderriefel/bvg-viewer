@@ -17,7 +17,7 @@ Then open <http://localhost:3000>.
 - **Search.** `⌘K` / `Ctrl+K` (or `/`). Curated Berlin places resolve on the keystroke with no network at all; anything address-shaped goes to Photon, which indexes OSM down to the house number.
 - **Places menu.** ~70 destinations, each with a hand-picked camera angle — a park gets a high gentle view, a tower gets looked up at.
 - **Inspector.** Click any building for its height, estimated storey count and raw OSM attributes.
-- **Live transport.** S-Bahn, U-Bahn, trams, buses, ferries and available regional / long-distance trains move through the map as coloured placeholders. Open the transport panel to filter modes; click a vehicle for its line, destination, operator, next stop and available delay.
+- **Live transport.** S-Bahn, U-Bahn, trams, buses, ferries and available regional / long-distance trains use original 3D vehicle models at close zoom, with coloured overview markers across the city. Open the transport panel to filter modes; click a vehicle for its line, destination, operator, next stop and available delay.
 - **Shareable views.** The camera lives in the URL hash (`#15.6/52.5163/13.3824/-25/70`), so any view can be linked.
 - **Prepared before exploring.** Startup loads the visible scene, prepares nearby views, and uses a bounded budget to cache Berlin's hosted tiles. Revisited areas reuse parsed geometry and cached data.
 - **Offline-ish.** Tiles and glyphs are cached by a service worker. Application and worker modules use normal browser HTTP caching so upgrades stay current.
@@ -46,7 +46,7 @@ Snapshots are stored atomically in `.data/transit/latest.json`, with up to 120 c
 
 Run this on a **persistent Node server with a writable data directory**. Collection starts lazily on the first `/api/transit` request. A static host or a serverless function that sleeps between requests cannot run continuous collection. Use one app process per upstream egress IP: the collector and its request budget are shared within one process, and independent replicas need an external shared collector before scaling out.
 
-Vehicle rectangles follow the dense movement points supplied by VBB, with interpolation between points and a short correction blend when predictions change. These are **estimated positions**, not guaranteed GPS observations or independently matched OSM tracks. Bus, rail and ferry paths have the accuracy of the supplied shapes; underground services appear at the surface and bridge elevations are not inferred. Coverage is limited to vehicles the upstream radar returns, and capped cells are marked as partial. Delay is shown only when supplied for the next stop; an unknown delay is never treated as on time. The API supplies service categories and operators, not reliable rolling-stock model identifiers.
+Vehicle models follow the dense movement points supplied by VBB, with interpolation between points and a short correction blend when predictions change. These are **estimated positions**, not guaranteed GPS observations or independently matched OSM tracks. Bus, rail and ferry paths have the accuracy of the supplied shapes; underground services appear at the surface and bridge elevations are not inferred. Coverage is limited to vehicles the upstream radar returns, and capped cells are marked as partial. Delay is shown only when supplied for the next stop; an unknown delay is never treated as on time. The API supplies service categories and operators, not reliable rolling-stock identifiers, so the models represent researched vehicle families. Models load from zoom 15 with one instanced draw per visible family; loading failures keep the existing directional bodies, and uncertain headings retain round markers. Selection, route display and following use the existing tracking behavior.
 
 ## Performance
 
@@ -64,7 +64,7 @@ Two findings were counter-intuitive enough to be worth repeating:
 - **Buildings are not the bottleneck.** Moving the extrusion layer from z13 all the way to z16 — from "buildings everywhere" to "almost none" — only bought about 3 fps. **Tile count** is what dominates, because every layer pays for every tile, which is why the LOD knob is worth 2.5× on its own.
 - **A small tile cache is not a performance setting.** Trimming it to 200 tiles made things _slower_, because rotating the camera kept evicting tiles that were about to be needed again and each one had to be re-parsed.
 
-The rendering preset (Performance / Balanced / Quality) in the layers popover controls the LOD falloff, when extrusions start, and antialiasing. The existing resolution, geometry, labels and preset choices are preserved; loading and runtime optimizations do not reduce visual detail.
+The rendering preset (Performance / Balanced / Quality) in the layers popover controls the LOD falloff, resolution and antialiasing. The existing source geometry, labels and preset choices are preserved.
 
 Startup now prioritizes a complete scene over the earliest possible reveal. A three-second local-source probe overlaps worker startup. The map then has a 27-second preparation budget, with five seconds reserved for restoring and finishing the starting view. It visits nearby positions and bearings behind the loading screen using the same renderer, so its decoded geometry, GPU buffers and shaders can be reused. Camera hashes are only updated after preparation.
 
@@ -74,7 +74,9 @@ On the hosted source, a twelve-request download pool also warms Berlin's z11–1
 
 Parsed cache limits are 128, 256 or 512 tiles per source according to memory and viewport hints; raising the zoom-level multiplier makes those limits effective. Tile selection reuses camera-invariant math instead of repeating numerical integrals per tile. Status updates do not serialize preferences or write localStorage. Service-worker responses return before disk writes, and cache trimming runs in serialized batches rather than scanning thousands of entries for every tile.
 
-Buildings only exist in OpenMapTiles from z13 up: z13 holds merged massing polygons and z14 holds individual footprints with real heights. Buildings use a separate source that keeps at least z13 detail in pitched views, while roads and labels can use coarser tiles. Both extrusion layers share that coverage, so tilting or rotating cannot leave a gap when the massing fades into detailed buildings.
+Buildings only exist in OpenMapTiles from z13 up: z13 holds merged massing polygons and z14 holds individual footprints with real heights. Buildings use a separate source that keeps at least z13 detail in pitched views, while roads and labels can use coarser tiles. One opaque extrusion layer draws both levels, using a 12m fallback when heights are absent. This removes overlapping transparent passes during zoom transitions and the extra depth pass previously needed by the almost-opaque Vivid and Blueprint themes. Heights, bases and colours remain feature-only, with no additional vertex attributes or geometry layers.
+
+Above 60° pitch, a theme-coloured horizon gradient gradually softens distant tile changes. It uses a cached, unblurred browser gradient behind the controls; only pitch and resize events update its position. It adds no tile requests, WebGL layers, feature queries or animation loop, and is removed in 2D. Actual vector footprint replacements remain discrete: the effect reduces their contrast rather than generating geometry absent from the source data. Tile detail, cache limits, label fading and drawing-buffer resolution are unchanged.
 
 ## Stack
 
@@ -113,6 +115,10 @@ Add `?debug` to the URL in a production build to expose the MapLibre instance as
 `public/maplibre/` holds a copy of MapLibre's worker, staged by `scripts/sync-map-worker.mjs` on every `dev` and `build`. It has to be served from `public/` because anything Vite serves out of `node_modules` gets an HMR preamble prepended, and that preamble touches `document` — which a Worker does not have. The worker then dies on load and the map stays blank with no error anywhere.
 
 MapLibre's stylesheet is imported into a CSS layer in `src/styles.css`. Tailwind v4 puts every utility in `@layer utilities`, and unlayered CSS outranks any layer, so an unlayered `.maplibregl-map { position: relative }` would beat `.absolute` and collapse the map container to zero height.
+
+## Vehicle models
+
+The [Berlin transit vehicle library](assets/vehicles/README.md) contains 49 original low-poly GLBs for Three.js, an editable Blender source scene, and a catalog covering the 266 observed services across seven transport modes. Open `/models/vehicles/` while the app is running to browse the models and their researched or representative service assignments. Rebuild from the running Blender Lab add-on with `vp run vehicles:build`.
 
 ## Attribution
 

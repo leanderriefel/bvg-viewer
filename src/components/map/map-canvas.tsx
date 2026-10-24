@@ -7,12 +7,14 @@ import { MapContext } from "@/map/map-context";
 import type { MapApi } from "@/map/map-context";
 import type { PreparationProgress } from "@/map/preparation";
 import { useMapStore } from "@/map/store";
+import { useBerlinTour } from "@/map/tour/use-berlin-tour";
 import { useTransitFeed } from "@/map/transit/use-transit-feed";
 import { useTransitLayer } from "@/map/transit/use-transit-layer";
 import { useVehicleFollow } from "@/map/transit/use-vehicle-follow";
 import { useVehicleRoute } from "@/map/transit/use-vehicle-route";
 import {
   useCameraSync,
+  useDistanceHaze,
   useFeatureInteraction,
   useMapInstance,
   useMapPreparation,
@@ -72,6 +74,7 @@ export function MapCanvas({
   const ready = mapReady && arrived;
 
   useRestyle(map, style, appliedStyleRef);
+  useDistanceHaze(map, view);
   useViewMode(map, ready, view);
   useMapEntrance(map, entered && startupReady, onArrival);
   useCameraSync(map, ready);
@@ -82,14 +85,15 @@ export function MapCanvas({
   useTransitLayer(map, ready);
   useVehicleRoute();
   useVehicleFollow(map, ready);
+  const tour = useBerlinTour(map, ready);
 
   const resetNorth = useCallback(() => {
     mapRef.current?.easeTo({ bearing: 0, duration: 400 });
   }, []);
 
   const api = useMemo<MapApi>(
-    () => ({ flyTo, jumpTo, map, ready, resetNorth }),
-    [map, ready, flyTo, jumpTo, resetNorth]
+    () => ({ flyTo, jumpTo, map, ready, resetNorth, tour }),
+    [map, ready, flyTo, jumpTo, resetNorth, tour]
   );
 
   return (

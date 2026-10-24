@@ -173,10 +173,20 @@ export function TransitReplayControls() {
   const replaying = mode === "replay";
   const time =
     first && last ? Math.max(first.at, Math.min(last.at, displayedTime)) : 0;
+  let historyMessage =
+    historyError ??
+    "No saved history yet. Replay appears as snapshots are saved.";
+  if (historyStatus === "loading") {
+    historyMessage = "Checking saved history…";
+  }
+  if (first && last) {
+    const unit = history.length === 1 ? "snapshot" : "snapshots";
+    historyMessage = `${history.length} saved ${unit} available`;
+  }
   return (
     <section
       aria-label="Transport replay"
-      className="shrink-0 border-t px-4 py-3"
+      className="shrink-0 border-b px-4 py-3"
     >
       <div className="flex min-h-7 items-center justify-between gap-2">
         <div className="min-w-0">
@@ -199,7 +209,7 @@ export function TransitReplayControls() {
         </div>
         {replaying ? (
           <Button
-            className="h-7 shrink-0 rounded-full px-2.5 text-xs"
+            className="h-8 shrink-0 rounded-lg px-2.5 text-xs"
             onClick={backToLive}
             size="sm"
             variant="outline"
@@ -208,7 +218,7 @@ export function TransitReplayControls() {
           </Button>
         ) : (
           <Button
-            className="h-7 rounded-full px-2.5 text-xs"
+            className="h-8 rounded-lg px-2.5 text-xs"
             disabled={!first}
             onClick={() => first && seekReplay(first.at)}
             size="sm"
@@ -218,7 +228,7 @@ export function TransitReplayControls() {
           </Button>
         )}
       </div>
-      {first && last ? (
+      {first && last && replaying ? (
         <HistoryTimeline
           first={first}
           history={history}
@@ -228,10 +238,7 @@ export function TransitReplayControls() {
         />
       ) : (
         <output className="text-muted-foreground mt-2 block text-xs leading-relaxed">
-          {historyStatus === "loading"
-            ? "Checking saved history…"
-            : (historyError ??
-              "No saved history yet. Replay appears as snapshots are saved.")}
+          {historyMessage}
         </output>
       )}
       {replaying && replayError && (

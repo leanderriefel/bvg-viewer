@@ -15,6 +15,8 @@ import {
   Moon02Icon,
   Navigation03Icon,
   PaintBoardIcon,
+  PauseIcon,
+  PlayIcon,
   PlusSignIcon,
   Search01Icon,
   Sun03Icon,
@@ -86,6 +88,8 @@ export const WaterIcon = make(WaterEnergyIcon);
 export const PlaneIcon = make(Airplane01Icon);
 export const StadiumIcon = make(FootballIcon);
 export const StarIconC = make(StarIcon);
+export const PlayIconC = make(PlayIcon);
+export const PauseIconC = make(PauseIcon);
 
 const CATEGORY_ICONS: Record<
   LandmarkCategory,

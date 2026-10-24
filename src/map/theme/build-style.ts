@@ -45,26 +45,8 @@ export interface BuildStyleOptions {
 const FONT_REGULAR = ["Noto Sans Regular"];
 const FONT_BOLD = ["Noto Sans Bold"];
 
-/**
- * Where detailed extrusions start.
- *
- * OpenMapTiles only carries building geometry from z13 up: z13 holds one merged
- * massing polygon per tile (every footprint in the tile unioned together) and
- * z14 holds the individual footprints with real heights. The building source
- * retains at least z13 at high pitch, so both extrusion layers always have
- * geometry even where the basemap uses lower zoom tiles.
- */
-const EXTRUSION_ZOOM: Record<QualityLevel, number> = {
-  balanced: 13.2,
-  performance: 14,
-  quality: 13,
-};
-
 /** Height used for the z13 massing blobs, which carry no height attribute. */
 const MASSING_HEIGHT = 12;
-
-/** Zoom window over which massing fades out while detailed buildings fade in. */
-const EXTRUSION_FADE = 0.35;
 
 /** Names come out of the tiles in several locales; prefer German, then plain. */
 const LABEL_FIELD: ExpressionSpecification = [
@@ -427,8 +409,6 @@ function buildingLayers(
   view: ViewMode,
   quality: QualityLevel
 ): LayerSpecification[] {
-  const start = EXTRUSION_ZOOM[quality];
-
   if (view === "flat") {
     return [
       {
@@ -462,51 +442,22 @@ function buildingLayers(
 
   return [
     {
-      // Low-zoom massing fades into height-aware extrusions. Both layers use
-      // the same tile coverage, so their crossfade cannot leave empty regions.
-      id: "building-massing",
-      type: "fill-extrusion",
-      source: BUILDING_SOURCE_ID,
-      "source-layer": "building",
-      minzoom: MIN_BUILDING_TILE_ZOOM,
-      // `hide_3d` marks footprints that exist only to be covered by building
-      // parts; extruding them double-draws the same volume.
-      filter: ["!=", ["get", "hide_3d"], true],
-      paint: {
-        "fill-extrusion-base": 0,
-        "fill-extrusion-color": palette.buildingMid,
-        "fill-extrusion-height": MASSING_HEIGHT,
-        "fill-extrusion-opacity": zoomRamp(
-          [
-            [start, palette.buildingOpacity],
-            [start + EXTRUSION_FADE, 0],
-          ],
-          1
-        ),
-        "fill-extrusion-vertical-gradient": false,
-      },
-    },
-    {
       id: "building-3d",
       type: "fill-extrusion",
       source: BUILDING_SOURCE_ID,
       "source-layer": "building",
-      // The worker must build this layer even for z13 tiles. The opacity ramp
-      // controls when it appears at the camera zoom for each quality tier.
+      // Coarse tiles must build the bucket even when the basemap loses detail.
       minzoom: MIN_BUILDING_TILE_ZOOM,
+      // `hide_3d` footprints are already covered by separate building parts.
       filter: ["!=", ["get", "hide_3d"], true],
       paint: {
         "fill-extrusion-color": buildingColor(palette),
-        "fill-extrusion-height": BUILDING_HEIGHT,
+        // Keep every paint attribute feature-only. Coarse blobs use the
+        // fallback height; elevated parts keep their roof at or above the base.
+        "fill-extrusion-height": ["max", BUILDING_HEIGHT, BUILDING_BASE],
         "fill-extrusion-base": BUILDING_BASE,
-        // Fades in over the same window the massing fades out.
-        "fill-extrusion-opacity": zoomRamp(
-          [
-            [start, 0],
-            [start + EXTRUSION_FADE, palette.buildingOpacity],
-          ],
-          1
-        ),
+        // Even slight extrusion transparency requires a second complete draw.
+        "fill-extrusion-opacity": 1,
         // The per-wall gradient is an extra shader branch on every fragment
         // of the most overdraw-heavy layer on the map; the height colour ramp
         // already separates walls from ground, so lower tiers skip it.
@@ -909,8 +860,6 @@ export function buildStyle(opts: BuildStyleOptions): StyleSpecification {
 
   return style;
 }
-
-export { EXTRUSION_ZOOM };
 
 /**
  * Drawing-buffer resolution cap per quality tier, as a function so `quality`

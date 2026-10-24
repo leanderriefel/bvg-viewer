@@ -1,0 +1,296 @@
+[
+  {
+    "id": "sbahn-480",
+    "detail": false,
+    "shownCars": 2,
+    "totalCars": 2
+  },
+  {
+    "id": "sbahn-481",
+    "detail": false,
+    "shownCars": 4,
+    "totalCars": 4
+  },
+  {
+    "id": "sbahn-483",
+    "detail": false,
+    "shownCars": 2,
+    "totalCars": 2
+  },
+  {
+    "id": "sbahn-484",
+    "detail": false,
+    "shownCars": 4,
+    "totalCars": 4
+  },
+  {
+    "id": "ubahn-a3",
+    "detail": false,
+    "shownCars": 2,
+    "totalCars": 2
+  },
+  {
+    "id": "ubahn-gi",
+    "detail": false,
+    "shownCars": 4,
+    "totalCars": 4
+  },
+  {
+    "id": "ubahn-hk",
+    "detail": false,
+    "shownCars": 4,
+    "totalCars": 4
+  },
+  {
+    "id": "ubahn-ik",
+    "detail": false,
+    "shownCars": 4,
+    "totalCars": 4
+  },
+  {
+    "id": "ubahn-jk",
+    "detail": false,
+    "shownCars": 4,
+    "totalCars": 4
+  },
+  {
+    "id": "ubahn-f",
+    "detail": false,
+    "shownCars": 2,
+    "totalCars": 2
+  },
+  {
+    "id": "ubahn-h",
+    "detail": false,
+    "shownCars": 6,
+    "totalCars": 6
+  },
+  {
+    "id": "ubahn-j",
+    "detail": false,
+    "shownCars": 4,
+    "totalCars": 4
+  },
+  {
+    "id": "tram-flexity-short",
+    "detail": false,
+    "shownCars": 5,
+    "totalCars": 5
+  },
+  {
+    "id": "tram-flexity-long",
+    "detail": false,
+    "shownCars": 7,
+    "totalCars": 7
+  },
+  {
+    "id": "tram-urbanliner",
+    "detail": false,
+    "shownCars": 9,
+    "totalCars": 9
+  },
+  {
+    "id": "tram-gt6n",
+    "detail": false,
+    "shownCars": 3,
+    "totalCars": 3
+  },
+  {
+    "id": "tram-gt6z",
+    "detail": false,
+    "shownCars": 3,
+    "totalCars": 3
+  },
+  {
+    "id": "tram-moderus-gamma",
+    "detail": false,
+    "shownCars": 1,
+    "totalCars": 1
+  },
+  {
+    "id": "tram-srs-artic",
+    "detail": false,
+    "shownCars": 3,
+    "totalCars": 3
+  },
+  {
+    "id": "tram-srs-ktnf6",
+    "detail": false,
+    "shownCars": 3,
+    "totalCars": 3
+  },
+  {
+    "id": "tram-vip-combino",
+    "detail": false,
+    "shownCars": 7,
+    "totalCars": 7
+  },
+  {
+    "id": "tram-vip-variobahn",
+    "detail": false,
+    "shownCars": 5,
+    "totalCars": 5
+  },
+  {
+    "id": "tram-vip-tramlink",
+    "detail": false,
+    "shownCars": 7,
+    "totalCars": 7
+  },
+  {
+    "id": "bus-bvg-solo",
+    "detail": false,
+    "shownCars": 1,
+    "totalCars": 1
+  },
+  {
+    "id": "bus-bvg-articulated",
+    "detail": false,
+    "shownCars": 2,
+    "totalCars": 2
+  },
+  {
+    "id": "bus-bvg-electric",
+    "detail": false,
+    "shownCars": 1,
+    "totalCars": 1
+  },
+  {
+    "id": "bus-bvg-electric-articulated",
+    "detail": false,
+    "shownCars": 2,
+    "totalCars": 2
+  },
+  {
+    "id": "bus-bvg-double-deck",
+    "detail": false,
+    "shownCars": 1,
+    "totalCars": 1
+  },
+  {
+    "id": "bus-heritage-double-deck",
+    "detail": false,
+    "shownCars": 1,
+    "totalCars": 1
+  },
+  {
+    "id": "bus-regional",
+    "detail": false,
+    "shownCars": 1,
+    "totalCars": 1
+  },
+  {
+    "id": "bus-airport-coach",
+    "detail": false,
+    "shownCars": 1,
+    "totalCars": 1
+  },
+  {
+    "id": "db-regio-dosto",
+    "detail": true,
+    "shownCars": 2,
+    "totalCars": 5
+  },
+  {
+    "id": "db-talent2",
+    "detail": false,
+    "shownCars": 5,
+    "totalCars": 5
+  },
+  {
+    "id": "odeg-desiro-hc",
+    "detail": false,
+    "shownCars": 4,
+    "totalCars": 4
+  },
+  {
+    "id": "odeg-kiss",
+    "detail": false,
+    "shownCars": 4,
+    "totalCars": 4
+  },
+  {
+    "id": "neb-mireo-b",
+    "detail": false,
+    "shownCars": 2,
+    "totalCars": 2
+  },
+  {
+    "id": "neb-mireo-h",
+    "detail": false,
+    "shownCars": 2,
+    "totalCars": 2
+  },
+  {
+    "id": "neb-pesa-link",
+    "detail": false,
+    "shownCars": 2,
+    "totalCars": 2
+  },
+  {
+    "id": "db-lint41",
+    "detail": false,
+    "shownCars": 2,
+    "totalCars": 2
+  },
+  {
+    "id": "ice-1",
+    "detail": true,
+    "shownCars": 2,
+    "totalCars": 11
+  },
+  {
+    "id": "ice-2",
+    "detail": true,
+    "shownCars": 2,
+    "totalCars": 8
+  },
+  {
+    "id": "ice-3",
+    "detail": true,
+    "shownCars": 2,
+    "totalCars": 8
+  },
+  {
+    "id": "ice-4",
+    "detail": true,
+    "shownCars": 2,
+    "totalCars": 12
+  },
+  {
+    "id": "ice-t",
+    "detail": true,
+    "shownCars": 2,
+    "totalCars": 7
+  },
+  {
+    "id": "ic2-dosto",
+    "detail": true,
+    "shownCars": 2,
+    "totalCars": 6
+  },
+  {
+    "id": "ec-coaches",
+    "detail": true,
+    "shownCars": 2,
+    "totalCars": 7
+  },
+  {
+    "id": "cd-comfortjet",
+    "detail": true,
+    "shownCars": 2,
+    "totalCars": 10
+  },
+  {
+    "id": "rail-generic",
+    "detail": false,
+    "shownCars": 4,
+    "totalCars": 4
+  },
+  {
+    "id": "ferry-faehrbaer",
+    "detail": false,
+    "shownCars": 1,
+    "totalCars": 1
+  }
+]
