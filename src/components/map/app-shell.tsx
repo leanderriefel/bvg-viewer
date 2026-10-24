@@ -12,6 +12,7 @@ import { MapControls, StatsHud } from "./map-hud";
 import { PlacesMenu } from "./places-menu";
 import { SearchCommand } from "./search-command";
 import { SettingsSheet } from "./settings-sheet";
+import { TourControls } from "./tour-controls";
 import { TransitPanel } from "./transit-panel";
 import { ViewControls } from "./view-controls";
 
@@ -74,7 +75,8 @@ export function AppShell({ entered, onProgress }: Props) {
               </header>
 
               <div className="flex min-h-0 flex-1 items-start justify-between gap-3 pt-3">
-                <div className="pointer-events-none">
+                <div className="pointer-events-none flex min-w-0 flex-col items-start gap-3">
+                  <TourControls />
                   <FeatureInspector />
                 </div>
 
