@@ -12,6 +12,7 @@ import { MapControls, StatsHud } from "./map-hud";
 import { PlacesMenu } from "./places-menu";
 import { SearchCommand } from "./search-command";
 import { SettingsSheet } from "./settings-sheet";
+import { TransitPanel } from "./transit-panel";
 import { ViewControls } from "./view-controls";
 
 /**
@@ -82,8 +83,9 @@ export function AppShell({ entered, onProgress }: Props) {
                 </div>
               </div>
 
-              <footer className="flex items-end justify-between gap-3 pt-3">
+              <footer className="flex items-end justify-end gap-3 pt-3 pb-3 md:justify-between">
                 <StatsHud />
+                <TransitPanel />
               </footer>
             </div>
           )}

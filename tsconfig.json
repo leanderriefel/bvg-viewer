@@ -10,7 +10,7 @@
       "@/*": ["./src/*"]
     },
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
-    "types": ["vite-plus/client"],
+    "types": ["vite-plus/client", "node"],
 
     /* Bundler mode */
     "moduleResolution": "bundler",
