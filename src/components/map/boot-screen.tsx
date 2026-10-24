@@ -1,68 +1,138 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+
 import type { PreparationProgress } from "@/map/preparation";
 
+import { BootShader } from "./boot-shader";
+
+const MINIMUM_OPENING_MS = 1100;
+const REVEAL_MS = 900;
+const SLOW_CONNECTION_MS = 15_000;
+
 interface Props {
+  ready?: boolean;
+  onEnter?: () => void;
   progress?: PreparationProgress;
   destination?: boolean;
 }
 
-/** Covers temporary loading cameras until the starting scene is complete. */
-export function MapBootScreen({ progress, destination = false }: Props) {
+function getLoadingStatus({
+  progress,
+  destination,
+  ready,
+  slow,
+}: Props & { slow: boolean }): string {
+  if (progress?.stage === "error") {
+    return progress.error ?? "Unable to load the map. Please try again.";
+  }
+  if (ready) {
+    return "Map ready";
+  }
+  if (progress?.stage === "warming") {
+    return "Preparing map…";
+  }
+  if (slow) {
+    return "The map is taking longer to load.";
+  }
+  return destination ? "Loading destination…" : "Loading map…";
+}
+
+/** One continuous surface from the server's first paint to the rendered map. */
+export function MapBootScreen({
+  ready = false,
+  onEnter,
+  progress,
+  destination = false,
+}: Props) {
+  const [phase, setPhase] = useState<"loading" | "revealing" | "complete">(
+    "loading"
+  );
+  const [slow, setSlow] = useState(false);
+  const startedAt = useRef<number | null>(null);
+
+  const enter = useCallback(() => {
+    setPhase("revealing");
+    onEnter?.();
+  }, [onEnter]);
+
+  useEffect(() => {
+    if (phase !== "loading") {
+      return;
+    }
+    startedAt.current = performance.now();
+    const timer = window.setTimeout(() => setSlow(true), SLOW_CONNECTION_MS);
+    return () => window.clearTimeout(timer);
+  }, [phase]);
+
+  useEffect(() => {
+    if (!ready || phase !== "loading") {
+      return;
+    }
+    const reducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
+    const elapsed = performance.now() - (startedAt.current ?? 0);
+    const delay = reducedMotion ? 0 : Math.max(0, MINIMUM_OPENING_MS - elapsed);
+    const timer = window.setTimeout(enter, delay);
+    return () => window.clearTimeout(timer);
+  }, [ready, phase, enter]);
+
+  useEffect(() => {
+    if (phase !== "revealing") {
+      return;
+    }
+    const reducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
+    const timer = window.setTimeout(
+      () => setPhase("complete"),
+      reducedMotion ? 180 : REVEAL_MS
+    );
+    return () => window.clearTimeout(timer);
+  }, [phase]);
+
+  if (phase === "complete") {
+    return null;
+  }
+
   const failed = progress?.stage === "error";
-  const warming = progress?.stage === "warming";
-  const completed = progress?.completed ?? 0;
   const total = progress?.total ?? 0;
-  let message = "Loading the starting view…";
-  if (destination) {
-    message = "Loading your destination…";
-  }
-  if (warming) {
-    message = "Preparing nearby views and caching Berlin…";
-  }
-  if (failed) {
-    message = progress.error ?? "Unable to load the map. Please try again.";
-  }
+  const completed = progress?.completed ?? 0;
+  const status = getLoadingStatus({ progress, destination, ready, slow });
 
   return (
-    <div className="bg-background flex h-full min-h-dvh w-full flex-col items-center justify-center gap-5 px-6">
-      <div aria-hidden="true" className="relative size-14">
-        <div className="bg-primary/25 absolute inset-0 rounded-full motion-safe:animate-pulse" />
-        <div className="bg-primary/70 absolute inset-[18%] rounded-full" />
+    <section
+      aria-label="Loading Berlin map"
+      className="boot-screen"
+      data-phase={phase}
+      data-ready={ready}
+      inert={phase === "revealing"}
+    >
+      <div aria-hidden="true" className="boot-screen__art">
+        {!destination && <BootShader />}
       </div>
-
-      <div className="text-center">
-        <h1 className="font-heading text-lg">Berlin in 3D</h1>
-        <output
-          aria-live="polite"
-          className="text-muted-foreground mt-1 block max-w-sm text-sm"
-        >
-          {message}
-        </output>
-      </div>
-
-      {!failed && (
-        <div className="w-full max-w-xs">
+      <div className="boot-screen__content">
+        <h1 className="boot-screen__title">
+          Berlin<span className="sr-only"> in 3D</span>
+        </h1>
+        {!failed && (
           <progress
-            aria-label="Preparing map data"
-            className="bg-primary/10 [&::-webkit-progress-value]:bg-primary [&::-moz-progress-bar]:bg-primary h-1.5 w-full overflow-hidden rounded-full [&::-webkit-progress-bar]:bg-transparent"
+            aria-label="Loading map data"
+            className="boot-screen__track"
             max={total || 100}
             value={total ? completed : undefined}
           />
-          <p className="text-muted-foreground mt-3 text-center text-xs">
-            {destination
-              ? "Preparing map data before you arrive."
-              : "Preparing the city for smoother exploring. This can take about 30 seconds."}
-          </p>
-        </div>
-      )}
-      {failed && (
-        <button
-          className="bg-primary text-primary-foreground rounded-lg px-4 py-2 text-sm font-medium"
-          onClick={() => window.location.reload()}
-          type="button"
-        >
-          Try again
-        </button>
-      )}
-    </div>
+        )}
+        <output className="boot-screen__status">{status}</output>
+        {(failed || (slow && !ready && progress?.stage !== "warming")) && (
+          <button
+            className="boot-screen__retry"
+            onClick={() => window.location.reload()}
+            type="button"
+          >
+            Try again
+          </button>
+        )}
+      </div>
+    </section>
   );
 }

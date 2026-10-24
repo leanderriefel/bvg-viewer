@@ -5,6 +5,7 @@ import { promisify } from "node:util";
 import tailwindcss from "@tailwindcss/vite";
 import { devtools } from "@tanstack/devtools-vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
+import { wgslVitePlugin } from "@vgpu/wgsl/loader-vite";
 import viteReact from "@vitejs/plugin-react";
 import fmt from "ultracite/oxfmt";
 import antiSlop from "ultracite/oxlint/anti-slop";
@@ -102,6 +103,7 @@ const config = defineConfig({
     include: ["maplibre-gl", "pmtiles"],
   },
   plugins: lazyPlugins(() => [
+    wgslVitePlugin({ minify: true }),
     {
       name: "maplibre-worker",
       // Built-in vp commands skip package.json's predev/prebuild scripts.

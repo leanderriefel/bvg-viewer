@@ -1,7 +1,8 @@
-import { useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { registerServiceWorker } from "@/map/offline";
+import type { PreparationProgress } from "@/map/preparation";
 import { useMapStore } from "@/map/store";
 import { getPalette } from "@/map/theme/palette";
 
@@ -28,8 +29,15 @@ function useThemeSync() {
   }, [scheme]);
 }
 
-export function AppShell() {
+interface Props {
+  entered: boolean;
+  onProgress: (progress: PreparationProgress) => void;
+}
+
+export function AppShell({ entered, onProgress }: Props) {
   useThemeSync();
+  const [controlsReady, setControlsReady] = useState(false);
+  const onArrival = useCallback(() => setControlsReady(true), []);
 
   useEffect(() => {
     registerServiceWorker();
@@ -37,37 +45,48 @@ export function AppShell() {
 
   return (
     <TooltipProvider delayDuration={300}>
-      <main className="bg-background relative h-dvh w-full overflow-hidden">
-        <MapCanvas>
+      <main
+        className="world-surface bg-background relative h-dvh w-full overflow-hidden"
+        data-entered={entered}
+        inert={!entered}
+      >
+        <MapCanvas
+          arrived={controlsReady}
+          entered={entered}
+          onArrival={onArrival}
+          onProgress={onProgress}
+        >
           {/* One pointer-events-none overlay so the map keeps every drag and
               wheel event; each panel opts back in for itself. */}
-          <div className="pointer-events-none absolute inset-0 flex flex-col p-3 sm:p-4">
-            <header className="flex items-start justify-between gap-3">
-              <div className="pointer-events-auto flex items-center gap-2">
-                <PlacesMenu />
-                <SearchCommand />
+          {controlsReady && (
+            <div className="world-controls pointer-events-none absolute inset-0 flex flex-col p-3 sm:p-4">
+              <header className="flex items-start justify-between gap-3">
+                <div className="pointer-events-auto flex items-center gap-2">
+                  <PlacesMenu />
+                  <SearchCommand />
+                </div>
+
+                <div className="pointer-events-auto flex items-center gap-2">
+                  <ViewControls />
+                  <SettingsSheet />
+                </div>
+              </header>
+
+              <div className="flex min-h-0 flex-1 items-start justify-between gap-3 pt-3">
+                <div className="pointer-events-none">
+                  <FeatureInspector />
+                </div>
+
+                <div className="pt-1">
+                  <MapControls />
+                </div>
               </div>
 
-              <div className="pointer-events-auto flex items-center gap-2">
-                <ViewControls />
-                <SettingsSheet />
-              </div>
-            </header>
-
-            <div className="flex min-h-0 flex-1 items-start justify-between gap-3 pt-3">
-              <div className="pointer-events-none">
-                <FeatureInspector />
-              </div>
-
-              <div className="pt-1">
-                <MapControls />
-              </div>
+              <footer className="flex items-end justify-between gap-3 pt-3">
+                <StatsHud />
+              </footer>
             </div>
-
-            <footer className="flex items-end justify-between gap-3 pt-3">
-              <StatsHud />
-            </footer>
-          </div>
+          )}
         </MapCanvas>
       </main>
     </TooltipProvider>
