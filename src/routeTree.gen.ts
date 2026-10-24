@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiTransitRouteImport } from './routes/api.transit'
+import { Route as ApiTransitRouteRouteImport } from './routes/api.transit-route'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -22,31 +23,40 @@ const ApiTransitRoute = ApiTransitRouteImport.update({
   path: '/api/transit',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiTransitRouteRoute = ApiTransitRouteRouteImport.update({
+  id: '/api/transit-route',
+  path: '/api/transit-route',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/api/transit': typeof ApiTransitRoute
+  '/api/transit-route': typeof ApiTransitRouteRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/api/transit': typeof ApiTransitRoute
+  '/api/transit-route': typeof ApiTransitRouteRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/api/transit': typeof ApiTransitRoute
+  '/api/transit-route': typeof ApiTransitRouteRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/transit'
+  fullPaths: '/' | '/api/transit' | '/api/transit-route'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/transit'
-  id: '__root__' | '/' | '/api/transit'
+  to: '/' | '/api/transit' | '/api/transit-route'
+  id: '__root__' | '/' | '/api/transit' | '/api/transit-route'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApiTransitRoute: typeof ApiTransitRoute
+  ApiTransitRouteRoute: typeof ApiTransitRouteRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -65,12 +75,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiTransitRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/transit-route': {
+      id: '/api/transit-route'
+      path: '/api/transit-route'
+      fullPath: '/api/transit-route'
+      preLoaderRoute: typeof ApiTransitRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApiTransitRoute: ApiTransitRoute,
+  ApiTransitRouteRoute: ApiTransitRouteRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

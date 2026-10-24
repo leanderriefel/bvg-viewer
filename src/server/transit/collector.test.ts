@@ -29,8 +29,10 @@ function radar(id = "trip-1", count = 1) {
 function setup(responses: Response[], cells = [CELL]) {
   let now = 1_000_000;
   const requestedAt: number[] = [];
-  const request = vi.fn(() => {
+  const requestedUrls: URL[] = [];
+  const request = vi.fn((input: RequestInfo | URL) => {
     requestedAt.push(now);
+    requestedUrls.push(new URL(String(input)));
     const response = responses.shift();
     if (!response) {
       throw new Error("No test response configured");
@@ -56,6 +58,7 @@ function setup(responses: Response[], cells = [CELL]) {
     request,
     storage,
     requestedAt,
+    requestedUrls,
     advance: (milliseconds: number) => {
       now += milliseconds;
     },
@@ -73,7 +76,7 @@ describe("shared Berlin transit collection", () => {
   });
 
   it("shares snapshots, spaces upstream requests, and deduplicates adjacent cells", async () => {
-    const { collector, request, requestedAt, storage } = setup(
+    const { collector, request, requestedAt, requestedUrls, storage } = setup(
       [Response.json(radar()), Response.json(radar())],
       [CELL, CELL]
     );
@@ -89,6 +92,9 @@ describe("shared Berlin transit collection", () => {
     collector.getSnapshot();
     collector.getSnapshot();
     expect(request).toHaveBeenCalledTimes(2);
+    const [radarUrl] = requestedUrls;
+    expect(radarUrl.searchParams.get("duration")).toBe("120");
+    expect(radarUrl.searchParams.get("frames")).toBe("120");
     expect(storage.save).toHaveBeenCalledTimes(1);
   });
 

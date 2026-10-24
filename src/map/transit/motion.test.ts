@@ -2,7 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import type { TransitVehicle } from "./model";
 import { MAX_VEHICLE_AGE_MS } from "./model";
-import { sampleVehicle } from "./motion";
+import { routeBearing, sampleVehicle, smoothBearing } from "./motion";
 import type { TransitPose } from "./motion";
 
 const OBSERVED_AT = 1_000_000;
@@ -90,5 +90,84 @@ describe("predicted vehicle motion", () => {
     });
     transit.frames = [];
     expect(sampleVehicle(transit, OBSERVED_AT)).toBeNull();
+  });
+
+  it("continues sampling the supplied forecast during several missed refreshes", () => {
+    const transit = vehicle();
+    transit.frames = [
+      { at: OBSERVED_AT, coordinates: [13.4, 52.5] },
+      { at: OBSERVED_AT + 120_000, coordinates: [13.412, 52.5] },
+    ];
+    expect(
+      sampleVehicle(transit, OBSERVED_AT + 90_000)?.coordinates[0]
+    ).toBeCloseTo(13.409);
+    expect(sampleVehicle(transit, OBSERVED_AT + 140_000)?.coordinates).toEqual([
+      13.412, 52.5,
+    ]);
+    expect(
+      sampleVehicle(transit, OBSERVED_AT + MAX_VEHICLE_AGE_MS + 1)
+    ).toBeNull();
+  });
+
+  it("preserves the last reliable heading through stationary updates and tiny coordinate jitter", () => {
+    const transit = vehicle();
+    transit.frames = [
+      { at: OBSERVED_AT, coordinates: [13.4, 52.5] },
+      { at: OBSERVED_AT + 10_000, coordinates: [13.400001, 52.5] },
+    ];
+    const pose: TransitPose = { coordinates: [0, 0], bearing: 135 };
+    expect(sampleVehicle(transit, OBSERVED_AT + 5000, pose)?.bearing).toBe(135);
+  });
+});
+
+describe("route-aware vehicle orientation", () => {
+  it("blends over the shortest heading arc", () => {
+    expect(smoothBearing(359, 1, 0.5)).toBe(0);
+    expect(smoothBearing(1, 359, 0.5)).toBe(0);
+    expect(smoothBearing(90, 180, 0.5)).toBe(135);
+  });
+
+  it("uses the local route tangent without changing vehicle coordinates", () => {
+    const point: [number, number] = [13.4005, 52.5001];
+    expect(
+      routeBearing(
+        [
+          [13.4, 52.5],
+          [13.401, 52.5],
+          [13.401, 52.501],
+        ],
+        point
+      )
+    ).toBeCloseTo(90);
+    expect(point).toEqual([13.4005, 52.5001]);
+    expect(
+      routeBearing(
+        [
+          [13.4, 52.5],
+          [13.401, 52.5],
+        ],
+        [13.4, 52.51]
+      )
+    ).toBeNull();
+    expect(
+      routeBearing(
+        [
+          [13.4, 52.5],
+          [13.4, 52.5],
+        ],
+        point
+      )
+    ).toBeNull();
+  });
+
+  it("favours the established direction where supplied route segments cross", () => {
+    const route: [number, number][] = [
+      [13.399, 52.5],
+      [13.401, 52.5],
+      [13.4, 52.499],
+      [13.4, 52.501],
+    ];
+    expect(routeBearing(route, [13.4, 52.5], 0)).toBeCloseTo(0);
+    expect(routeBearing(route, [13.4, 52.5], 90)).toBeCloseTo(90);
   });
 });

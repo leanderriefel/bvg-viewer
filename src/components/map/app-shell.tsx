@@ -65,7 +65,7 @@ export function AppShell() {
               </div>
             </div>
 
-            <footer className="flex items-end justify-between gap-3 pt-3">
+            <footer className="flex items-end justify-end gap-3 pt-3 pb-3 md:justify-between">
               <StatsHud />
               <TransitPanel />
             </footer>

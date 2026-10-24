@@ -1,3 +1,5 @@
+import type { LngLat } from "@/lib/geo";
+
 import type { TransitFrame, TransitVehicle } from "./model";
 import { MAX_VEHICLE_AGE_MS } from "./model";
 
@@ -16,10 +18,78 @@ function heading(from: TransitFrame, to: TransitFrame): number {
 }
 
 function samePosition(a: TransitFrame, b: TransitFrame): boolean {
+  const north = (b.coordinates[1] - a.coordinates[1]) * 111_320;
+  const east =
+    (b.coordinates[0] - a.coordinates[0]) *
+    111_320 *
+    Math.cos((a.coordinates[1] * Math.PI) / 180);
+  // Sub-metre coordinate noise should not turn a stopped vehicle around.
+  return north * north + east * east < 1;
+}
+
+/** Interpolate a heading over the shortest arc, including the 359° → 1° seam. */
+export function smoothBearing(
+  from: number,
+  to: number,
+  fraction: number
+): number {
+  if (
+    !(Number.isFinite(from) && Number.isFinite(to) && Number.isFinite(fraction))
+  ) {
+    return from;
+  }
+  const difference = ((((to - from + 540) % 360) + 360) % 360) - 180;
   return (
-    a.coordinates[0] === b.coordinates[0] &&
-    a.coordinates[1] === b.coordinates[1]
+    (((from + difference * Math.max(0, Math.min(1, fraction))) % 360) + 360) %
+    360
   );
+}
+
+/** A nearby supplied route can orient a stopped vehicle without snapping its position. */
+export function routeBearing(
+  coordinates: LngLat[],
+  point: LngLat,
+  previousBearing?: number
+): number | null {
+  const longitudeScale = 111_320 * Math.cos((point[1] * Math.PI) / 180);
+  let nearestScore = Infinity;
+  let nearestHeading: number | null = null;
+  for (let index = 1; index < coordinates.length; index += 1) {
+    const from = coordinates[index - 1];
+    const to = coordinates[index];
+    const east = (to[0] - from[0]) * longitudeScale;
+    const north = (to[1] - from[1]) * 111_320;
+    const lengthSquared = east * east + north * north;
+    if (lengthSquared < 1) {
+      continue;
+    }
+    const fromEast = (from[0] - point[0]) * longitudeScale;
+    const fromNorth = (from[1] - point[1]) * 111_320;
+    const fraction = Math.max(
+      0,
+      Math.min(1, -(fromEast * east + fromNorth * north) / lengthSquared)
+    );
+    const distance = Math.hypot(
+      fromEast + east * fraction,
+      fromNorth + north * fraction
+    );
+    if (distance > 80) {
+      continue;
+    }
+    const bearing = ((Math.atan2(east, north) * 180) / Math.PI + 360) % 360;
+    const difference =
+      previousBearing === undefined
+        ? 0
+        : Math.abs(((bearing - previousBearing + 540) % 360) - 180);
+    // Prefer continuity at crossings and nearby parallel tracks, while distance
+    // remains dominant. The supplied route retains its direction of travel.
+    const score = distance + (difference / 180) * 8;
+    if (score < nearestScore) {
+      nearestScore = score;
+      nearestHeading = bearing;
+    }
+  }
+  return nearestHeading;
 }
 
 /** Sample only inside the supplied prediction horizon; never extrapolate. */
@@ -70,6 +140,8 @@ export function sampleVehicle(
       return result;
     }
   }
-  result.bearing = 0;
+  // A supplied output pose carries the last reliable heading through a dwell
+  // or an update that contains no movement information.
+  result.bearing = target?.bearing ?? 0;
   return result;
 }

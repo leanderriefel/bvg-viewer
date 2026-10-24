@@ -1,7 +1,7 @@
 /* oxlint-disable anti-slop/no-unknown-parameters, anti-slop/no-unsafe-dictionary-type -- This module is the schema boundary that narrows untrusted API and disk JSON before use. */
 import type { LngLat } from "@/lib/geo";
 
-export const MAX_VEHICLE_AGE_MS = 90_000;
+export const MAX_VEHICLE_AGE_MS = 150_000;
 export const TRANSIT_PRODUCTS = [
   "suburban",
   "subway",

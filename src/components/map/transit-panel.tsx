@@ -1,126 +1,91 @@
-import { memo, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { BERLIN_TIMEZONE } from "@/lib/geo";
 import { cn } from "@/lib/utils";
-import { useMapApi } from "@/map/map-context";
 import {
+  MAX_VEHICLE_AGE_MS,
   PRODUCT_COLORS,
   PRODUCT_LABELS,
   TRANSIT_PRODUCTS,
 } from "@/map/transit/model";
-import type {
-  TransitProduct,
-  TransitSnapshot,
-  TransitVehicle,
-} from "@/map/transit/model";
-import { sampleVehicle } from "@/map/transit/motion";
+import type { TransitSnapshot } from "@/map/transit/model";
+import { summarizeTransit } from "@/map/transit/network";
 import { useTransitStore } from "@/map/transit/store";
 
-import { CloseIcon } from "./icons";
+import { CloseIcon, LayersIcon, PlusIcon } from "./icons";
+import { TransitLineBrowser } from "./transit-line-browser";
+import { TransitVehicleCard } from "./transit-vehicle-card";
 
-const UPDATE_FORMAT = new Intl.DateTimeFormat("en-GB", {
+const NUMBER = new Intl.NumberFormat("en-GB");
+const CLOCK = new Intl.DateTimeFormat("en-GB", {
   hour: "2-digit",
   minute: "2-digit",
   second: "2-digit",
   timeZone: BERLIN_TIMEZONE,
 });
 
-function formatDelay(delay: number | null): string {
-  if (delay === null) {
-    return "Delay unavailable";
+function connectionLabel(
+  snapshot: TransitSnapshot | null,
+  error: string | null,
+  now: number
+) {
+  if (
+    error ||
+    snapshot?.status === "offline" ||
+    (snapshot?.updatedAt && now - snapshot.updatedAt > MAX_VEHICLE_AGE_MS)
+  ) {
+    return { text: "Updates interrupted", live: false };
   }
-  if (delay === 0) {
-    return "On time";
+  if (!snapshot?.updatedAt) {
+    return { text: "Connecting", live: false };
   }
-  const minutes = Math.max(1, Math.round(Math.abs(delay) / 60));
-  return `${minutes} min ${delay > 0 ? "late" : "early"}`;
+  return {
+    text:
+      snapshot.status === "degraded" ? "Partial coverage" : "Live estimates",
+    live: snapshot.status === "live",
+  };
 }
 
-function VehicleDetails({ vehicle }: { vehicle: TransitVehicle }) {
-  const { flyTo } = useMapApi();
-  const selectVehicle = useTransitStore((state) => state.selectVehicle);
-  const showOnMap = () => {
-    const pose = sampleVehicle(vehicle, Date.now());
-    flyTo({ center: pose?.coordinates ?? vehicle.location, zoom: 16 });
-  };
+function NetworkStats({ now }: { now: number }) {
+  const snapshot = useTransitStore((state) => state.snapshot);
+  const summary = useMemo(
+    () => summarizeTransit(snapshot?.vehicles ?? [], now),
+    [snapshot, now]
+  );
+  const stats = [
+    { label: "Vehicles", value: summary.vehicleCount },
+    { label: "Active lines", value: summary.lineCount },
+    { label: "≥1 min late", value: summary.delayedCount },
+  ];
   return (
-    <section aria-label="Selected vehicle" className="border-t pt-3">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <h3 className="text-sm font-semibold">
-            {vehicle.line} · {PRODUCT_LABELS[vehicle.product]}
-          </h3>
-          <p className="text-muted-foreground mt-0.5 text-xs">
-            {vehicle.direction || "Destination unavailable"}
-          </p>
-        </div>
-        <Button
-          aria-label="Close vehicle details"
-          className="size-6 shrink-0"
-          onClick={() => selectVehicle(null)}
-          size="icon"
-          variant="ghost"
-        >
-          <CloseIcon size={13} />
-        </Button>
-      </div>
-      <dl className="mt-2 space-y-1 text-xs">
-        <div className="flex justify-between gap-3">
-          <dt className="text-muted-foreground">Schedule</dt>
-          <dd
-            className={
-              vehicle.delay !== null && vehicle.delay > 60
-                ? "text-amber-600 dark:text-amber-400"
-                : ""
-            }
-          >
-            {formatDelay(vehicle.delay)}
+    <dl className="grid grid-cols-3 gap-2 px-5 pt-1 pb-4">
+      {stats.map((stat) => (
+        <div key={stat.label}>
+          <dd className="text-[25px] leading-tight font-semibold tracking-tight tabular-nums">
+            {NUMBER.format(stat.value)}
           </dd>
+          <dt className="text-muted-foreground mt-1 text-xs">{stat.label}</dt>
         </div>
-        {vehicle.nextStop && (
-          <div className="flex justify-between gap-3">
-            <dt className="text-muted-foreground shrink-0">Next stop</dt>
-            <dd className="text-right">{vehicle.nextStop}</dd>
-          </div>
-        )}
-        {vehicle.operator && (
-          <div className="flex justify-between gap-3">
-            <dt className="text-muted-foreground shrink-0">Operator</dt>
-            <dd className="text-right">{vehicle.operator}</dd>
-          </div>
-        )}
-      </dl>
-      <Button
-        className="mt-3 w-full"
-        onClick={showOnMap}
-        size="sm"
-        variant="outline"
-      >
-        Show on map
-      </Button>
-    </section>
+      ))}
+    </dl>
   );
 }
 
-const ModeFilters = memo(() => {
+function ModeFilters({ now }: { now: number }) {
   const snapshot = useTransitStore((state) => state.snapshot);
   const filters = useTransitStore((state) => state.filters);
   const toggleProduct = useTransitStore((state) => state.toggleProduct);
-  const counts = useMemo(() => {
-    const result: Partial<Record<TransitProduct, number>> = {};
-    for (const vehicle of snapshot?.vehicles ?? []) {
-      result[vehicle.product] = (result[vehicle.product] ?? 0) + 1;
-    }
-    return result;
-  }, [snapshot]);
-
+  const counts = useMemo(
+    () => summarizeTransit(snapshot?.vehicles ?? [], now).byProduct,
+    [snapshot, now]
+  );
   return (
-    <fieldset>
-      <legend className="mb-2 text-xs font-medium">Transport modes</legend>
-      <div className="grid grid-cols-2 gap-1.5">
+    <fieldset className="border-t px-4 py-3">
+      <legend className="sr-only">Transport visible on the map</legend>
+      <div className="flex flex-wrap gap-1.5">
         {TRANSIT_PRODUCTS.map((product) => {
-          if (product === "unknown" && !counts.unknown) {
+          if (product === "unknown" && counts.unknown === 0) {
             return null;
           }
           return (
@@ -128,10 +93,10 @@ const ModeFilters = memo(() => {
               aria-label={`Show ${PRODUCT_LABELS[product]}`}
               aria-pressed={filters[product]}
               className={cn(
-                "flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-left text-xs transition-colors",
+                "focus-visible:outline-ring inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2",
                 filters[product]
-                  ? "bg-muted/70"
-                  : "text-muted-foreground opacity-60"
+                  ? "border-border/80 bg-background text-foreground shadow-xs"
+                  : "bg-muted/40 text-muted-foreground border-transparent opacity-60"
               )}
               key={product}
               onClick={() => toggleProduct(product)}
@@ -139,12 +104,12 @@ const ModeFilters = memo(() => {
             >
               <span
                 aria-hidden="true"
-                className="size-2 shrink-0 rounded-full"
+                className="size-1.5 rounded-full"
                 style={{ backgroundColor: PRODUCT_COLORS[product] }}
               />
-              <span className="flex-1">{PRODUCT_LABELS[product]}</span>
-              <span className="font-mono tabular-nums">
-                {counts[product] ?? 0}
+              {PRODUCT_LABELS[product]}
+              <span className="text-muted-foreground text-xs tabular-nums">
+                {NUMBER.format(counts[product])}
               </span>
             </button>
           );
@@ -152,155 +117,98 @@ const ModeFilters = memo(() => {
       </div>
     </fieldset>
   );
-});
+}
 
-ModeFilters.displayName = "ModeFilters";
-
-const VehiclePicker = memo(() => {
-  const snapshot = useTransitStore((state) => state.snapshot);
-  const selectedId = useTransitStore((state) => state.selectedId);
-  const selectVehicle = useTransitStore((state) => state.selectVehicle);
-  const vehicle = snapshot?.vehicles.find((item) => item.id === selectedId);
-  return (
-    <>
-      {snapshot && snapshot.vehicles.length > 0 && (
-        <label className="block text-xs font-medium">
-          Inspect a vehicle
-          <select
-            className="bg-background mt-1.5 w-full min-w-0 rounded-lg border p-2 text-xs font-normal"
-            onChange={(event) => selectVehicle(event.target.value || null)}
-            value={vehicle?.id ?? ""}
-          >
-            <option value="">Choose a line and destination</option>
-            {snapshot.vehicles.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.line} → {item.direction || "Unknown destination"}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
-      {vehicle && <VehicleDetails vehicle={vehicle} />}
-      {selectedId && !vehicle && (
-        <p className="text-muted-foreground text-xs">
-          This vehicle is no longer in the latest feed.
-        </p>
-      )}
-    </>
-  );
-});
-
-VehiclePicker.displayName = "VehiclePicker";
-
-function FeedStatus({
+function FeedDetails({
   snapshot,
   error,
-  age,
 }: {
   snapshot: TransitSnapshot | null;
   error: string | null;
-  age: number;
 }) {
-  if (!snapshot) {
-    return (
-      <p className="text-muted-foreground text-xs">
-        {error || "Connecting to the transport feed…"}
-      </p>
-    );
-  }
-  const message = error || snapshot.error;
   return (
-    <div className="text-muted-foreground space-y-1 text-xs leading-relaxed">
-      {snapshot.updatedAt && (
+    <details className="group bg-muted/20 text-muted-foreground border-t px-4 py-3 text-xs">
+      <summary className="focus-visible:outline-ring flex cursor-pointer list-none items-center justify-between gap-2 rounded-sm focus-visible:outline-2 [&::-webkit-details-marker]:hidden">
+        <span>
+          {snapshot?.updatedAt
+            ? `Updated ${CLOCK.format(snapshot.updatedAt)}`
+            : "Waiting for the first update"}
+        </span>
+        <span className="flex items-center gap-1.5">
+          {snapshot
+            ? `${snapshot.coverage.succeeded}/${snapshot.coverage.total} areas`
+            : "VBB"}
+          <PlusIcon
+            className="transition-transform group-open:rotate-45"
+            size={12}
+          />
+        </span>
+      </summary>
+      <div className="space-y-2 pt-3 leading-relaxed">
         <p>
-          Last update {UPDATE_FORMAT.format(snapshot.updatedAt)} Berlin ·{" "}
-          {Math.floor(age / 1000)}s ago
+          Positions follow VBB movement estimates. Underground services appear
+          at the surface.
         </p>
-      )}
-      <p>
-        Coverage: {snapshot.coverage.succeeded}/{snapshot.coverage.total} Berlin
-        areas
-        {snapshot.coverage.capped > 0
-          ? ` · ${snapshot.coverage.capped} at the API limit`
-          : ""}
-        .
-      </p>
-      {snapshot.coverage.capped > 0 && (
-        <p className="text-amber-700 dark:text-amber-400">
-          Busy areas may contain additional vehicles.
+        <p>
+          Delay figures cover vehicles with reported data; an unknown delay is
+          not counted as on time.
         </p>
-      )}
-      <p>
-        {snapshot.storage === "disk"
-          ? "History saved on the server."
-          : "History is not being saved; live data is in memory."}
-      </p>
-      {message && (
-        <p className="text-amber-700 dark:text-amber-400">{message}</p>
-      )}
-      {age > 90_000 && snapshot.updatedAt && (
-        <p>Old vehicles disappear after 90 seconds. Waiting for fresh data.</p>
-      )}
-      {snapshot.updatedAt && snapshot.vehicles.length === 0 && (
-        <p>No vehicles were returned for the latest scan.</p>
-      )}
-    </div>
+        {snapshot?.coverage.capped ? (
+          <p>
+            Some busy areas reached the feed limit; additional vehicles may be
+            running.
+          </p>
+        ) : null}
+        <p>
+          {snapshot?.storage === "disk"
+            ? "Recent history is saved on the server."
+            : "History is not being saved. Live data is kept in memory."}
+        </p>
+        {(error || snapshot?.error) && (
+          <p className="text-amber-700 dark:text-amber-400">
+            {error || snapshot?.error}
+          </p>
+        )}
+        <a
+          className="text-foreground inline-block font-medium underline underline-offset-4"
+          href="https://v6.vbb.transport.rest/"
+          rel="noreferrer"
+          target="_blank"
+        >
+          Data via VBB / transport.rest ↗
+        </a>
+      </div>
+    </details>
   );
 }
 
-function feedPresentation(
-  snapshot: TransitSnapshot | null,
-  enabled: boolean,
-  failed: boolean,
-  age: number
-): { label: string; tone: string } {
-  if (!enabled) {
-    return { label: "Hidden", tone: "bg-muted-foreground" };
-  }
-  const degraded =
-    snapshot?.status === "degraded" || snapshot?.status === "offline" || failed;
-  if (degraded || (Boolean(snapshot?.updatedAt) && age > 90_000)) {
-    return {
-      label: age > 90_000 ? "Feed unavailable" : "Partial updates",
-      tone: "bg-amber-500",
-    };
-  }
-  if (snapshot?.updatedAt) {
-    return {
-      label: `Live estimates · ${snapshot.vehicles.length.toLocaleString()} vehicles`,
-      tone: "bg-emerald-500",
-    };
-  }
-  return { label: "Connecting", tone: "bg-muted-foreground" };
-}
-
-/** Poll status and mode filters stay in React; vehicle animation stays on the map. */
+/** Browse the live network by line, then direction, then individual vehicle. */
 export function TransitPanel() {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
+  const [lineKey, setLineKey] = useState<string | null>(null);
   const [now, setNow] = useState(0);
   const snapshot = useTransitStore((state) => state.snapshot);
   const enabled = useTransitStore((state) => state.enabled);
   const selectedId = useTransitStore((state) => state.selectedId);
   const error = useTransitStore((state) => state.error);
-  const requestStatus = useTransitStore((state) => state.status);
   const setEnabled = useTransitStore((state) => state.setEnabled);
   const selectVehicle = useTransitStore((state) => state.selectVehicle);
   useEffect(() => {
     const tick = () => setNow(Date.now());
     tick();
-    const timer = window.setInterval(tick, 1000);
+    const timer = window.setInterval(tick, 5000);
     return () => window.clearInterval(timer);
   }, []);
-  const open = expanded || Boolean(selectedId);
-  const age = snapshot?.updatedAt
-    ? Math.max(0, now - snapshot.updatedAt)
-    : Infinity;
-  const presentation = feedPresentation(
-    snapshot,
-    enabled,
-    requestStatus === "error",
-    age
+  const vehicle = snapshot?.vehicles.find(
+    (item) =>
+      item.id === selectedId && now - item.observedAt <= MAX_VEHICLE_AGE_MS
   );
+  const open = expanded || Boolean(selectedId);
+  const connection = connectionLabel(snapshot, error, now);
+  let connectionTone = "bg-muted-foreground";
+  if (enabled) {
+    connectionTone = connection.live ? "bg-emerald-500" : "bg-amber-500";
+  }
   const toggleExpanded = () => {
     setExpanded(!open);
     if (open) {
@@ -310,66 +218,94 @@ export function TransitPanel() {
   return (
     <aside
       aria-label="Live public transport"
-      className="bg-card/90 pointer-events-auto w-[min(20rem,calc(100vw-1.5rem))] overflow-hidden rounded-2xl border shadow-lg backdrop-blur-md"
+      className="border-border/80 bg-card/95 pointer-events-auto w-[min(23rem,calc(100vw-1.5rem))] overflow-hidden rounded-[24px] border shadow-[0_8px_40px_-12px_rgb(0_0_0/25%)] backdrop-blur-xl"
     >
-      <div className="flex items-center gap-2 px-3 py-2.5">
+      <div className="flex items-start gap-3 px-4 pt-4 pb-3">
         <button
           aria-controls="transit-panel-details"
           aria-expanded={open}
           aria-label="Toggle public transport details"
-          className="flex min-w-0 flex-1 items-center gap-2 text-left"
+          className="focus-visible:outline-ring flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left focus-visible:outline-2"
           onClick={toggleExpanded}
           type="button"
         >
-          <span
-            aria-hidden="true"
-            className={cn("size-2 shrink-0 rounded-full", presentation.tone)}
-          />
+          <span className="bg-background flex size-10 shrink-0 items-center justify-center rounded-2xl border shadow-xs">
+            <LayersIcon size={18} />
+          </span>
           <span className="min-w-0">
-            <span className="block text-xs font-semibold">
-              Berlin transport{" "}
-              <span className="text-muted-foreground font-normal">
-                {open ? "−" : "+"}
-              </span>
+            <span className="block text-sm font-semibold tracking-tight">
+              Berlin in motion
             </span>
-            <span className="text-muted-foreground block text-xs">
-              {presentation.label}
+            <span className="text-muted-foreground mt-1 flex items-center gap-1.5 text-xs">
+              <span
+                aria-hidden="true"
+                className={cn("size-1.5 rounded-full", connectionTone)}
+              />
+              {enabled ? connection.text : "Transport hidden"}
             </span>
           </span>
         </button>
         <Button
+          aria-label={
+            enabled ? "Hide transport on map" : "Show transport on map"
+          }
           aria-pressed={enabled}
-          className="h-7 px-2 text-xs"
+          className="h-7 rounded-full px-2.5 text-xs"
           onClick={() => setEnabled(!enabled)}
           size="sm"
           variant="outline"
         >
-          {enabled ? "Hide" : "Show"}
+          {enabled ? "Visible" : "Hidden"}
+        </Button>
+        <Button
+          aria-label={
+            open ? "Collapse transport panel" : "Expand transport panel"
+          }
+          className="text-muted-foreground size-7 rounded-full"
+          onClick={toggleExpanded}
+          size="icon"
+          variant="ghost"
+        >
+          {open ? <CloseIcon size={14} /> : <PlusIcon size={14} />}
         </Button>
       </div>
+      {!open && (
+        <div className="text-muted-foreground px-5 pb-3 text-xs">
+          Explore active lines, vehicles and delays
+        </div>
+      )}
       {open && (
         <div
-          className="max-h-[min(65dvh,34rem)] space-y-3 overflow-y-auto overscroll-contain border-t px-3 py-3"
+          className="max-h-[min(72dvh,44rem)] overflow-y-auto overscroll-contain"
           id="transit-panel-details"
         >
-          <ModeFilters />
-          <FeedStatus age={age} error={error} snapshot={snapshot} />
-          <VehiclePicker />
-          <p className="text-muted-foreground border-t pt-2 text-xs leading-relaxed">
-            Positions are VBB estimates, animated along supplied shapes where
-            available. Underground services are shown at the surface. Coverage
-            and delays depend on the feed; vehicle models are unavailable. Data
-            via{" "}
-            <a
-              className="underline underline-offset-2"
-              href="https://v6.vbb.transport.rest/"
-              rel="noreferrer"
-              target="_blank"
-            >
-              transport.rest
-            </a>
-            .
-          </p>
+          {vehicle ? (
+            <TransitVehicleCard
+              now={now}
+              onBack={() => selectVehicle(null)}
+              vehicle={vehicle}
+            />
+          ) : (
+            <>
+              {!lineKey && (
+                <>
+                  <NetworkStats now={now} />
+                  <ModeFilters now={now} />
+                </>
+              )}
+              {selectedId && (
+                <p className="text-muted-foreground px-4 pb-2 text-xs">
+                  That vehicle has left the current feed.
+                </p>
+              )}
+              <TransitLineBrowser
+                lineKey={lineKey}
+                now={now}
+                onLineChange={setLineKey}
+              />
+            </>
+          )}
+          <FeedDetails error={error} snapshot={snapshot} />
         </div>
       )}
     </aside>

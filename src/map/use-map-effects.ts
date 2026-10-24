@@ -467,7 +467,7 @@ export function useFeatureInteraction(mapRef: MapRef, ready: boolean): void {
       const hits = map.queryRenderedFeatures(e.point);
       // The live transport layer owns its vehicle inspector. Do not select a
       // building underneath the same click, regardless of listener ordering.
-      if (hits.some((feature) => feature.source === "live-transit")) {
+      if (hits.some((feature) => feature.source?.startsWith("live-transit"))) {
         setSelection(null);
         return;
       }
