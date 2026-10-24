@@ -146,8 +146,8 @@ function FeedDetails({
       </summary>
       <div className="space-y-2 pt-3 leading-relaxed">
         <p>
-          Positions follow VBB movement estimates. Underground services appear
-          at the surface.
+          Positions follow VBB movement estimates. U-Bahn uses outlined X-ray
+          markers and dashed routes, including on above-ground sections.
         </p>
         <p>
           Delay figures cover vehicles with reported data; an unknown delay is

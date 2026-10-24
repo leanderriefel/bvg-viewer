@@ -6,6 +6,7 @@ import type { TransitVehicle } from "@/map/transit/model";
 import { sampleVehicle } from "@/map/transit/motion";
 import { displayTransitLine, formatDelay } from "@/map/transit/network";
 import { useTransitStore } from "@/map/transit/store";
+import { isXrayVehicle } from "@/map/transit/xray";
 
 import { TargetIcon } from "./icons";
 
@@ -130,6 +131,26 @@ export function TransitVehicleCard({
           <dd className="font-medium">{routeDescription}</dd>
         </div>
       </dl>
+      {isXrayVehicle(vehicle) && (
+        <div className="mb-4 rounded-xl border border-sky-500/20 bg-sky-500/5 px-3 py-2.5">
+          <p className="flex items-center gap-2 text-xs font-semibold">
+            <span
+              aria-hidden="true"
+              className="size-2.5 rounded-full border-2 border-sky-600 shadow-[0_0_8px_#0ea5e94d] dark:border-sky-400"
+            />
+            U-Bahn X-ray
+            <span
+              aria-hidden="true"
+              className="ml-auto w-8 border-t-2 border-dashed border-sky-600 dark:border-sky-400"
+            />
+          </p>
+          <p className="text-muted-foreground mt-1.5 text-xs leading-relaxed">
+            Outlined trains and dashed routes show U-Bahn schematically,
+            including above-ground sections.
+            {following && " Nearby buildings fade while following."}
+          </p>
+        </div>
+      )}
       <div className="grid grid-cols-[1fr_auto] gap-2">
         <Button
           aria-pressed={following}
