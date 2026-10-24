@@ -182,6 +182,16 @@ body {
   outline: none;
 }
 
+/* A cached gradient softens far-away tile changes; no blur or map render pass.
+   Keep these dimensions in sync with distance-haze.ts's horizon calculation. */
+.map-distance-haze {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 42%;
+  pointer-events: none;
+  contain: strict;
+}
+
 /* --- search pin ---------------------------------------------------------- */
 
 .berlin-pin {

@@ -6,6 +6,7 @@ import type { RefObject } from "react";
 import { BERLIN_MAX_BOUNDS, DEFAULT_CAMERA } from "@/lib/geo";
 import type { LngLat } from "@/lib/geo";
 import { exposeMapForDebugging } from "@/map/debug";
+import { installDistanceHaze } from "@/map/distance-haze";
 import { trackMapLoadingHealth } from "@/map/loading-health";
 import { DRAG_ROTATE_OPTIONS } from "@/map/navigation";
 import { INITIAL_PREPARATION, prepareMap } from "@/map/preparation";
@@ -157,6 +158,17 @@ export function useMapStyle(source: TileSource | null) {
     showPois,
     showStreetNames,
   ]);
+}
+
+/** Keep atmospheric softening in sync with the theme and map lifecycle. */
+export function useDistanceHaze(map: MapLibreMap | null, view: ViewMode): void {
+  const palette = useMapStore((s) => s.palette);
+  useEffect(() => {
+    if (!map || view !== "perspective") {
+      return;
+    }
+    return installDistanceHaze(map, getPalette(palette).skyHorizon);
+  }, [map, palette, view]);
 }
 
 type Style = NonNullable<ReturnType<typeof useMapStyle>>;
@@ -564,13 +576,7 @@ export function useFeatureInteraction(
         setSelection(null);
         return;
       }
-      // Prefer a real footprint over the coarse horizon massing that shares
-      // its geometry; the massing hit is still worth something out where no
-      // detailed tile exists.
-      const useful =
-        hits.find(
-          (f) => f.layer.id !== "building-massing" && isInspectable(f)
-        ) ?? hits.find(isInspectable);
+      const useful = hits.find(isInspectable);
 
       setSelection(
         useful ? readSelection(useful, [e.lngLat.lng, e.lngLat.lat]) : null
