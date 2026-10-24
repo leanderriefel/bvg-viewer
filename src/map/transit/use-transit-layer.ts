@@ -21,15 +21,19 @@ import { displayTransitLine } from "@/map/transit/network";
 import { forecastCorrectionMs } from "@/map/transit/reconciliation";
 import { bindTransitRoute } from "@/map/transit/route-layer";
 import { useTransitStore } from "@/map/transit/store";
+import { VEHICLE_MODEL_MIN_ZOOM } from "@/map/transit/vehicle-model-config";
+import type { VehicleModelsController } from "@/map/transit/vehicle-model-layer";
 
 export const TRANSIT_SOURCE_ID = "live-transit";
 export const TRANSIT_BODY_LAYER_ID = "live-transit-bodies";
 export const TRANSIT_POINT_SOURCE_ID = "live-transit-points";
 export const TRANSIT_POINT_LAYER_ID = "live-transit-overview";
+export const TRANSIT_MODEL_HIT_LAYER_ID = "live-transit-model-hits";
 const SELECTION_LAYER_ID = "live-transit-selection";
 const LABEL_LAYER_ID = "live-transit-labels";
 const INTERACTIVE_LAYERS = [
   TRANSIT_BODY_LAYER_ID,
+  TRANSIT_MODEL_HIT_LAYER_ID,
   TRANSIT_POINT_LAYER_ID,
   SELECTION_LAYER_ID,
   LABEL_LAYER_ID,
@@ -52,6 +56,7 @@ interface VehicleProperties {
   label: string;
   selected: boolean;
   headingKnown: boolean;
+  modelLoaded: boolean;
 }
 
 interface RenderVehicle {
@@ -91,6 +96,7 @@ function makeRenderVehicle(vehicle: TransitVehicle): RenderVehicle {
     label: displayTransitLine(vehicle),
     selected: false,
     headingKnown: hasHeading,
+    modelLoaded: false,
   };
   return {
     vehicle,
@@ -140,9 +146,9 @@ function hasForecastHeading(vehicle: TransitVehicle): boolean {
 function placeFootprint(
   render: RenderVehicle,
   center: LngLat,
-  bearing: number
+  bearing: number,
+  size = VEHICLE_SIZE[render.vehicle.product]
 ): void {
-  const size = VEHICLE_SIZE[render.vehicle.product];
   const angle = (bearing * Math.PI) / 180;
   const sin = Math.sin(angle);
   const cos = Math.cos(angle);
@@ -211,13 +217,28 @@ function installLayers(
       id: TRANSIT_BODY_LAYER_ID,
       type: "fill-extrusion",
       source: TRANSIT_SOURCE_ID,
-      filter: ["==", ["get", "headingKnown"], true],
+      filter: [
+        "all",
+        ["==", ["get", "headingKnown"], true],
+        ["!=", ["get", "modelLoaded"], true],
+      ],
       paint: {
         "fill-extrusion-color": ["get", "color"],
         "fill-extrusion-height": ["get", "height"],
         "fill-extrusion-base": 0.6,
         "fill-extrusion-opacity": 0.95,
       },
+    });
+  }
+  if (!map.getLayer(TRANSIT_MODEL_HIT_LAYER_ID)) {
+    // Custom GL meshes are not queryable as style features. Their actual-sized
+    // invisible footprints preserve selection/hover without drawing a box.
+    map.addLayer({
+      id: TRANSIT_MODEL_HIT_LAYER_ID,
+      type: "fill",
+      source: TRANSIT_SOURCE_ID,
+      filter: ["==", ["get", "modelLoaded"], true],
+      paint: { "fill-opacity": 0 },
     });
   }
   if (!map.getLayer(TRANSIT_POINT_LAYER_ID)) {
@@ -344,7 +365,8 @@ function updateVisibleVehicles(
   state: TransitState,
   data: FeatureCollection<Polygon, VehicleProperties>,
   points: FeatureCollection<Point, VehicleProperties>,
-  time: number
+  time: number,
+  models: VehicleModelsController | null
 ): void {
   const bounds = map.getBounds();
   const west = bounds.getWest() - 0.002;
@@ -354,6 +376,7 @@ function updateVisibleVehicles(
   const now = Date.now();
   data.features.length = 0;
   points.features.length = 0;
+  models?.beginFrame(map.getZoom());
   for (const render of renderVehicles) {
     const { id } = render.vehicle;
     if (
@@ -381,16 +404,31 @@ function updateVisibleVehicles(
       continue;
     }
     updateVehicleBearing(render, pose, state, time);
-    placeFootprint(render, pose.coordinates, render.drawnBearing);
+    const selected = id === state.selectedId || id === state.followedId;
+    const model = render.headingTrusted
+      ? models?.draw(
+          render.vehicle,
+          pose.coordinates,
+          render.drawnBearing,
+          selected
+        )
+      : null;
+    render.feature.properties.modelLoaded = Boolean(model);
+    placeFootprint(
+      render,
+      pose.coordinates,
+      render.drawnBearing,
+      model?.dimensions
+    );
     const [longitude, latitude] = pose.coordinates;
     render.point.geometry.coordinates[0] = longitude;
     render.point.geometry.coordinates[1] = latitude;
-    render.feature.properties.selected =
-      id === state.selectedId || id === state.followedId;
+    render.feature.properties.selected = selected;
     render.drawnAt = time;
     data.features.push(render.feature);
     points.features.push(render.point);
   }
+  models?.endFrame();
 }
 
 function bindVehicleInteraction(
@@ -435,11 +473,16 @@ export function useTransitLayer(map: MapLibreMap | null, ready: boolean): void {
     let dirty = true;
     let wasVisible = false;
     let removed = false;
+    let disposed = false;
+    let models: VehicleModelsController | null = null;
+    let modelsLoading = false;
+    let modelsUnavailable = false;
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
     const unbindRoute = bindTransitRoute(map);
 
     const restore = () => {
       installLayers(map, data, points);
+      models?.restore();
       dirty = true;
     };
     // `ready` means the initial load event already fired. Camera tile requests
@@ -480,6 +523,32 @@ export function useTransitLayer(map: MapLibreMap | null, ready: boolean): void {
     document.addEventListener("visibilitychange", invalidate);
     const unsubscribe = useTransitStore.subscribe(invalidate);
 
+    const requestModels = async () => {
+      if (
+        models ||
+        modelsLoading ||
+        modelsUnavailable ||
+        disposed ||
+        removed ||
+        map.getZoom() < VEHICLE_MODEL_MIN_ZOOM
+      ) {
+        return;
+      }
+      modelsLoading = true;
+      try {
+        const { createVehicleModels } =
+          await import("@/map/transit/vehicle-model-layer");
+        if (!(disposed || removed)) {
+          models = createVehicleModels(map, invalidate);
+          dirty = true;
+        }
+      } catch {
+        modelsUnavailable = true;
+      } finally {
+        modelsLoading = false;
+      }
+    };
+
     const animate = (time: number) => {
       if (removed) {
         return;
@@ -517,6 +586,8 @@ export function useTransitLayer(map: MapLibreMap | null, ready: boolean): void {
         if (dirty || wasVisible) {
           data.features.length = 0;
           points.features.length = 0;
+          models?.beginFrame(0);
+          models?.endFrame();
           source.setData(data);
           pointSource.setData(points);
           wasVisible = false;
@@ -525,7 +596,16 @@ export function useTransitLayer(map: MapLibreMap | null, ready: boolean): void {
         return;
       }
 
-      updateVisibleVehicles(map, renderVehicles, state, data, points, time);
+      void requestModels();
+      updateVisibleVehicles(
+        map,
+        renderVehicles,
+        state,
+        data,
+        points,
+        time,
+        models
+      );
       if (dirty || data.features.length > 0 || wasVisible) {
         source.setData(data);
         pointSource.setData(points);
@@ -536,6 +616,7 @@ export function useTransitLayer(map: MapLibreMap | null, ready: boolean): void {
     animationFrame = requestAnimationFrame(animate);
 
     return () => {
+      disposed = true;
       cancelAnimationFrame(animationFrame);
       unsubscribe();
       unbindRoute();
@@ -544,6 +625,7 @@ export function useTransitLayer(map: MapLibreMap | null, ready: boolean): void {
       unbindVehicles();
       map.off("moveend", invalidate);
       document.removeEventListener("visibilitychange", invalidate);
+      models?.dispose();
       if (removed) {
         return;
       }

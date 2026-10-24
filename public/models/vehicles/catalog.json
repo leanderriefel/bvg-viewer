@@ -35,13 +35,13 @@
       "bytes": 152316,
       "segments": [
         {
-          "node": "sbahn-480.segment-01.004",
+          "node": "sbahn-480.segment-01.005",
           "length": 18.26,
           "offset": [0.0, 0, 9.27],
           "role": "driving-car"
         },
         {
-          "node": "sbahn-480.segment-02.004",
+          "node": "sbahn-480.segment-02.005",
           "length": 18.26,
           "offset": [0.0, 0, -9.27],
           "role": "driving-car"
@@ -74,25 +74,25 @@
       "bytes": 281980,
       "segments": [
         {
-          "node": "sbahn-481.segment-01.004",
+          "node": "sbahn-481.segment-01.005",
           "length": 18.19,
           "offset": [0.0, 0, 27.705],
           "role": "driving-car"
         },
         {
-          "node": "sbahn-481.segment-02.004",
+          "node": "sbahn-481.segment-02.005",
           "length": 18.19,
           "offset": [0.0, 0, 9.235],
           "role": "car"
         },
         {
-          "node": "sbahn-481.segment-03.004",
+          "node": "sbahn-481.segment-03.005",
           "length": 18.19,
           "offset": [0.0, 0, -9.235],
           "role": "car"
         },
         {
-          "node": "sbahn-481.segment-04.004",
+          "node": "sbahn-481.segment-04.005",
           "length": 18.19,
           "offset": [0.0, 0, -27.705],
           "role": "driving-car"
@@ -125,13 +125,13 @@
       "bytes": 150816,
       "segments": [
         {
-          "node": "sbahn-483.segment-01.004",
+          "node": "sbahn-483.segment-01.005",
           "length": 18.26,
           "offset": [0.0, 0, 9.27],
           "role": "driving-car"
         },
         {
-          "node": "sbahn-483.segment-02.004",
+          "node": "sbahn-483.segment-02.005",
           "length": 18.26,
           "offset": [0.0, 0, -9.27],
           "role": "driving-car"
@@ -164,25 +164,25 @@
       "bytes": 281676,
       "segments": [
         {
-          "node": "sbahn-484.segment-01.004",
+          "node": "sbahn-484.segment-01.005",
           "length": 18.19,
           "offset": [0.0, 0, 27.705],
           "role": "driving-car"
         },
         {
-          "node": "sbahn-484.segment-02.004",
+          "node": "sbahn-484.segment-02.005",
           "length": 18.19,
           "offset": [0.0, 0, 9.235],
           "role": "car"
         },
         {
-          "node": "sbahn-484.segment-03.004",
+          "node": "sbahn-484.segment-03.005",
           "length": 18.19,
           "offset": [0.0, 0, -9.235],
           "role": "car"
         },
         {
-          "node": "sbahn-484.segment-04.004",
+          "node": "sbahn-484.segment-04.005",
           "length": 18.19,
           "offset": [0.0, 0, -27.705],
           "role": "driving-car"
@@ -215,13 +215,13 @@
       "bytes": 150484,
       "segments": [
         {
-          "node": "ubahn-a3.segment-01.004",
+          "node": "ubahn-a3.segment-01.005",
           "length": 12.81,
           "offset": [0.0, 0, 6.545],
           "role": "driving-car"
         },
         {
-          "node": "ubahn-a3.segment-02.004",
+          "node": "ubahn-a3.segment-02.005",
           "length": 12.81,
           "offset": [0.0, 0, -6.545],
           "role": "driving-car"
@@ -254,25 +254,25 @@
       "bytes": 272956,
       "segments": [
         {
-          "node": "ubahn-gi.segment-01.004",
+          "node": "ubahn-gi.segment-01.005",
           "length": 12.715,
           "offset": [0.0, 0, 19.4925],
           "role": "driving-car"
         },
         {
-          "node": "ubahn-gi.segment-02.004",
+          "node": "ubahn-gi.segment-02.005",
           "length": 12.715,
           "offset": [0.0, 0, 6.4975],
           "role": "car"
         },
         {
-          "node": "ubahn-gi.segment-03.004",
+          "node": "ubahn-gi.segment-03.005",
           "length": 12.715,
           "offset": [0.0, 0, -6.4975],
           "role": "car"
         },
         {
-          "node": "ubahn-gi.segment-04.004",
+          "node": "ubahn-gi.segment-04.005",
           "length": 12.715,
           "offset": [0.0, 0, -19.4925],
           "role": "driving-car"
@@ -305,25 +305,25 @@
       "bytes": 274460,
       "segments": [
         {
-          "node": "ubahn-hk.segment-01.004",
+          "node": "ubahn-hk.segment-01.005",
           "length": 12.69,
           "offset": [0.0, 0, 19.455],
           "role": "driving-car"
         },
         {
-          "node": "ubahn-hk.segment-02.004",
+          "node": "ubahn-hk.segment-02.005",
           "length": 12.69,
           "offset": [0.0, 0, 6.485],
           "role": "car"
         },
         {
-          "node": "ubahn-hk.segment-03.004",
+          "node": "ubahn-hk.segment-03.005",
           "length": 12.69,
           "offset": [0.0, 0, -6.485],
           "role": "car"
         },
         {
-          "node": "ubahn-hk.segment-04.004",
+          "node": "ubahn-hk.segment-04.005",
           "length": 12.69,
           "offset": [0.0, 0, -19.455],
           "role": "driving-car"
@@ -356,25 +356,25 @@
       "bytes": 274460,
       "segments": [
         {
-          "node": "ubahn-ik.segment-01.004",
+          "node": "ubahn-ik.segment-01.005",
           "length": 12.69,
           "offset": [0.0, 0, 19.455],
           "role": "driving-car"
         },
         {
-          "node": "ubahn-ik.segment-02.004",
+          "node": "ubahn-ik.segment-02.005",
           "length": 12.69,
           "offset": [0.0, 0, 6.485],
           "role": "car"
         },
         {
-          "node": "ubahn-ik.segment-03.004",
+          "node": "ubahn-ik.segment-03.005",
           "length": 12.69,
           "offset": [0.0, 0, -6.485],
           "role": "car"
         },
         {
-          "node": "ubahn-ik.segment-04.004",
+          "node": "ubahn-ik.segment-04.005",
           "length": 12.69,
           "offset": [0.0, 0, -19.455],
           "role": "driving-car"
@@ -407,25 +407,25 @@
       "bytes": 274460,
       "segments": [
         {
-          "node": "ubahn-jk.segment-01.004",
+          "node": "ubahn-jk.segment-01.005",
           "length": 12.74,
           "offset": [0.0, 0, 19.53],
           "role": "driving-car"
         },
         {
-          "node": "ubahn-jk.segment-02.004",
+          "node": "ubahn-jk.segment-02.005",
           "length": 12.74,
           "offset": [0.0, 0, 6.51],
           "role": "car"
         },
         {
-          "node": "ubahn-jk.segment-03.004",
+          "node": "ubahn-jk.segment-03.005",
           "length": 12.74,
           "offset": [0.0, 0, -6.51],
           "role": "car"
         },
         {
-          "node": "ubahn-jk.segment-04.004",
+          "node": "ubahn-jk.segment-04.005",
           "length": 12.74,
           "offset": [0.0, 0, -19.53],
           "role": "driving-car"
@@ -458,13 +458,13 @@
       "bytes": 152908,
       "segments": [
         {
-          "node": "ubahn-f.segment-01.004",
+          "node": "ubahn-f.segment-01.005",
           "length": 15.91,
           "offset": [0.0, 0, 8.095],
           "role": "driving-car"
         },
         {
-          "node": "ubahn-f.segment-02.004",
+          "node": "ubahn-f.segment-02.005",
           "length": 15.91,
           "offset": [0.0, 0, -8.095],
           "role": "driving-car"
@@ -497,37 +497,37 @@
       "bytes": 404096,
       "segments": [
         {
-          "node": "ubahn-h.segment-01.004",
+          "node": "ubahn-h.segment-01.005",
           "length": 16.2167,
           "offset": [0.0, 0, 41.2417],
           "role": "driving-car"
         },
         {
-          "node": "ubahn-h.segment-02.004",
+          "node": "ubahn-h.segment-02.005",
           "length": 16.2167,
           "offset": [0.0, 0, 24.745],
           "role": "car"
         },
         {
-          "node": "ubahn-h.segment-03.004",
+          "node": "ubahn-h.segment-03.005",
           "length": 16.2167,
           "offset": [0.0, 0, 8.2483],
           "role": "car"
         },
         {
-          "node": "ubahn-h.segment-04.004",
+          "node": "ubahn-h.segment-04.005",
           "length": 16.2167,
           "offset": [0.0, 0, -8.2483],
           "role": "car"
         },
         {
-          "node": "ubahn-h.segment-05.004",
+          "node": "ubahn-h.segment-05.005",
           "length": 16.2167,
           "offset": [0.0, 0, -24.745],
           "role": "car"
         },
         {
-          "node": "ubahn-h.segment-06.004",
+          "node": "ubahn-h.segment-06.005",
           "length": 16.2167,
           "offset": [0.0, 0, -41.2417],
           "role": "driving-car"
@@ -560,25 +560,25 @@
       "bytes": 279244,
       "segments": [
         {
-          "node": "ubahn-j.segment-01.004",
+          "node": "ubahn-j.segment-01.005",
           "length": 15.84,
           "offset": [0.0, 0, 24.18],
           "role": "driving-car"
         },
         {
-          "node": "ubahn-j.segment-02.004",
+          "node": "ubahn-j.segment-02.005",
           "length": 15.84,
           "offset": [0.0, 0, 8.06],
           "role": "car"
         },
         {
-          "node": "ubahn-j.segment-03.004",
+          "node": "ubahn-j.segment-03.005",
           "length": 15.84,
           "offset": [0.0, 0, -8.06],
           "role": "car"
         },
         {
-          "node": "ubahn-j.segment-04.004",
+          "node": "ubahn-j.segment-04.005",
           "length": 15.84,
           "offset": [0.0, 0, -24.18],
           "role": "driving-car"
@@ -611,31 +611,31 @@
       "bytes": 191368,
       "segments": [
         {
-          "node": "tram-flexity-short.segment-01.004",
+          "node": "tram-flexity-short.segment-01.005",
           "length": 8.1579,
           "offset": [0.0, 0, 11.3211],
           "role": "driving-car"
         },
         {
-          "node": "tram-flexity-short.segment-02.004",
+          "node": "tram-flexity-short.segment-02.005",
           "length": 3.1326,
           "offset": [0.0, 0, 5.4158],
           "role": "car"
         },
         {
-          "node": "tram-flexity-short.segment-03.004",
+          "node": "tram-flexity-short.segment-03.005",
           "length": 7.1789,
           "offset": [0.0, 0, 0.0],
           "role": "car"
         },
         {
-          "node": "tram-flexity-short.segment-04.004",
+          "node": "tram-flexity-short.segment-04.005",
           "length": 3.1326,
           "offset": [0.0, 0, -5.4158],
           "role": "car"
         },
         {
-          "node": "tram-flexity-short.segment-05.004",
+          "node": "tram-flexity-short.segment-05.005",
           "length": 8.1579,
           "offset": [0.0, 0, -11.3211],
           "role": "driving-car"
@@ -668,43 +668,43 @@
       "bytes": 243108,
       "segments": [
         {
-          "node": "tram-flexity-long.segment-01.004",
+          "node": "tram-flexity-long.segment-01.005",
           "length": 7.8257,
           "offset": [0.0, 0, 16.0871],
           "role": "driving-car"
         },
         {
-          "node": "tram-flexity-long.segment-02.004",
+          "node": "tram-flexity-long.segment-02.005",
           "length": 3.0051,
           "offset": [0.0, 0, 10.4117],
           "role": "car"
         },
         {
-          "node": "tram-flexity-long.segment-03.004",
+          "node": "tram-flexity-long.segment-03.005",
           "length": 6.8866,
           "offset": [0.0, 0, 5.2059],
           "role": "car"
         },
         {
-          "node": "tram-flexity-long.segment-04.004",
+          "node": "tram-flexity-long.segment-04.005",
           "length": 3.0051,
           "offset": [0.0, 0, 0.0],
           "role": "car"
         },
         {
-          "node": "tram-flexity-long.segment-05.004",
+          "node": "tram-flexity-long.segment-05.005",
           "length": 6.8866,
           "offset": [0.0, 0, -5.2059],
           "role": "car"
         },
         {
-          "node": "tram-flexity-long.segment-06.004",
+          "node": "tram-flexity-long.segment-06.005",
           "length": 3.0051,
           "offset": [0.0, 0, -10.4117],
           "role": "car"
         },
         {
-          "node": "tram-flexity-long.segment-07.004",
+          "node": "tram-flexity-long.segment-07.005",
           "length": 7.8257,
           "offset": [0.0, 0, -16.0871],
           "role": "driving-car"
@@ -737,55 +737,55 @@
       "bytes": 297916,
       "segments": [
         {
-          "node": "tram-urbanliner.segment-01.004",
+          "node": "tram-urbanliner.segment-01.005",
           "length": 7.9032,
           "offset": [0.0, 0, 21.4934],
           "role": "driving-car"
         },
         {
-          "node": "tram-urbanliner.segment-02.004",
+          "node": "tram-urbanliner.segment-02.005",
           "length": 3.0348,
           "offset": [0.0, 0, 15.7644],
           "role": "car"
         },
         {
-          "node": "tram-urbanliner.segment-03.004",
+          "node": "tram-urbanliner.segment-03.005",
           "length": 6.9548,
           "offset": [0.0, 0, 10.5096],
           "role": "car"
         },
         {
-          "node": "tram-urbanliner.segment-04.004",
+          "node": "tram-urbanliner.segment-04.005",
           "length": 3.0348,
           "offset": [0.0, 0, 5.2548],
           "role": "car"
         },
         {
-          "node": "tram-urbanliner.segment-05.004",
+          "node": "tram-urbanliner.segment-05.005",
           "length": 6.9548,
           "offset": [0.0, 0, -0.0],
           "role": "car"
         },
         {
-          "node": "tram-urbanliner.segment-06.004",
+          "node": "tram-urbanliner.segment-06.005",
           "length": 3.0348,
           "offset": [0.0, 0, -5.2548],
           "role": "car"
         },
         {
-          "node": "tram-urbanliner.segment-07.004",
+          "node": "tram-urbanliner.segment-07.005",
           "length": 6.9548,
           "offset": [0.0, 0, -10.5096],
           "role": "car"
         },
         {
-          "node": "tram-urbanliner.segment-08.004",
+          "node": "tram-urbanliner.segment-08.005",
           "length": 3.0348,
           "offset": [0.0, 0, -15.7644],
           "role": "car"
         },
         {
-          "node": "tram-urbanliner.segment-09.004",
+          "node": "tram-urbanliner.segment-09.005",
           "length": 7.9032,
           "offset": [0.0, 0, -21.4934],
           "role": "driving-car"
@@ -818,19 +818,19 @@
       "bytes": 148100,
       "segments": [
         {
-          "node": "tram-gt6n.segment-01.004",
+          "node": "tram-gt6n.segment-01.005",
           "length": 8.6164,
           "offset": [0.0, 0, 8.9993],
           "role": "driving-car"
         },
         {
-          "node": "tram-gt6n.segment-02.004",
+          "node": "tram-gt6n.segment-02.005",
           "length": 9.0472,
           "offset": [0.0, 0, -0.0925],
           "role": "car"
         },
         {
-          "node": "tram-gt6n.segment-03.004",
+          "node": "tram-gt6n.segment-03.005",
           "length": 8.6164,
           "offset": [0.0, 0, -9.1843],
           "role": "car"
@@ -863,19 +863,19 @@
       "bytes": 162500,
       "segments": [
         {
-          "node": "tram-gt6z.segment-01.004",
+          "node": "tram-gt6z.segment-01.005",
           "length": 9.0098,
           "offset": [0.0, 0, 9.4951],
           "role": "driving-car"
         },
         {
-          "node": "tram-gt6z.segment-02.004",
+          "node": "tram-gt6z.segment-02.005",
           "length": 9.4603,
           "offset": [0.0, 0, 0.0],
           "role": "car"
         },
         {
-          "node": "tram-gt6z.segment-03.004",
+          "node": "tram-gt6z.segment-03.005",
           "length": 9.0098,
           "offset": [0.0, 0, -9.4951],
           "role": "driving-car"
@@ -908,7 +908,7 @@
       "bytes": 85116,
       "segments": [
         {
-          "node": "tram-moderus-gamma.segment-01.004",
+          "node": "tram-moderus-gamma.segment-01.005",
           "length": 14.9,
           "offset": [-0.0, 0, -0.11],
           "role": "driving-car"
@@ -941,19 +941,19 @@
       "bytes": 189132,
       "segments": [
         {
-          "node": "tram-srs-artic.segment-01.004",
+          "node": "tram-srs-artic.segment-01.005",
           "length": 8.8787,
           "offset": [0.0, 0, 9.3607],
           "role": "driving-car"
         },
         {
-          "node": "tram-srs-artic.segment-02.004",
+          "node": "tram-srs-artic.segment-02.005",
           "length": 9.3226,
           "offset": [0.0, 0, -0.0],
           "role": "car"
         },
         {
-          "node": "tram-srs-artic.segment-03.004",
+          "node": "tram-srs-artic.segment-03.005",
           "length": 8.8787,
           "offset": [0.0, 0, -9.3607],
           "role": "driving-car"
@@ -986,19 +986,19 @@
       "bytes": 161920,
       "segments": [
         {
-          "node": "tram-srs-ktnf6.segment-01.004",
+          "node": "tram-srs-ktnf6.segment-01.005",
           "length": 10.1069,
           "offset": [0.0, 0, 8.4466],
           "role": "driving-car"
         },
         {
-          "node": "tram-srs-ktnf6.segment-02.004",
+          "node": "tram-srs-ktnf6.segment-02.005",
           "length": 6.2663,
           "offset": [0.0, 0, 0.0],
           "role": "car"
         },
         {
-          "node": "tram-srs-ktnf6.segment-03.004",
+          "node": "tram-srs-ktnf6.segment-03.005",
           "length": 10.1069,
           "offset": [0.0, 0, -8.4466],
           "role": "driving-car"
@@ -1031,43 +1031,43 @@
       "bytes": 250048,
       "segments": [
         {
-          "node": "tram-vip-combino.segment-01.004",
+          "node": "tram-vip-combino.segment-01.005",
           "length": 8.2329,
           "offset": [0.0, 0, 16.8836],
           "role": "driving-car"
         },
         {
-          "node": "tram-vip-combino.segment-02.004",
+          "node": "tram-vip-combino.segment-02.005",
           "length": 3.1614,
           "offset": [0.0, 0, 10.9264],
           "role": "car"
         },
         {
-          "node": "tram-vip-combino.segment-03.004",
+          "node": "tram-vip-combino.segment-03.005",
           "length": 7.245,
           "offset": [0.0, 0, 5.4632],
           "role": "car"
         },
         {
-          "node": "tram-vip-combino.segment-04.004",
+          "node": "tram-vip-combino.segment-04.005",
           "length": 3.1614,
           "offset": [0.0, 0, -0.0],
           "role": "car"
         },
         {
-          "node": "tram-vip-combino.segment-05.004",
+          "node": "tram-vip-combino.segment-05.005",
           "length": 7.245,
           "offset": [0.0, 0, -5.4632],
           "role": "car"
         },
         {
-          "node": "tram-vip-combino.segment-06.004",
+          "node": "tram-vip-combino.segment-06.005",
           "length": 3.1614,
           "offset": [0.0, 0, -10.9264],
           "role": "car"
         },
         {
-          "node": "tram-vip-combino.segment-07.004",
+          "node": "tram-vip-combino.segment-07.005",
           "length": 8.2329,
           "offset": [0.0, 0, -16.8836],
           "role": "driving-car"
@@ -1100,31 +1100,31 @@
       "bytes": 189776,
       "segments": [
         {
-          "node": "tram-vip-variobahn.segment-01.004",
+          "node": "tram-vip-variobahn.segment-01.005",
           "length": 7.9386,
           "offset": [0.0, 0, 11.0307],
           "role": "driving-car"
         },
         {
-          "node": "tram-vip-variobahn.segment-02.004",
+          "node": "tram-vip-variobahn.segment-02.005",
           "length": 3.0484,
           "offset": [0.0, 0, 5.2772],
           "role": "car"
         },
         {
-          "node": "tram-vip-variobahn.segment-03.004",
+          "node": "tram-vip-variobahn.segment-03.005",
           "length": 6.986,
           "offset": [0.0, 0, 0.0],
           "role": "car"
         },
         {
-          "node": "tram-vip-variobahn.segment-04.004",
+          "node": "tram-vip-variobahn.segment-04.005",
           "length": 3.0484,
           "offset": [0.0, 0, -5.2772],
           "role": "car"
         },
         {
-          "node": "tram-vip-variobahn.segment-05.004",
+          "node": "tram-vip-variobahn.segment-05.005",
           "length": 7.9386,
           "offset": [0.0, 0, -11.0307],
           "role": "driving-car"
@@ -1157,43 +1157,43 @@
       "bytes": 250056,
       "segments": [
         {
-          "node": "tram-vip-tramlink.segment-01.004",
+          "node": "tram-vip-tramlink.segment-01.005",
           "length": 8.2329,
           "offset": [0.0, 0, 16.8836],
           "role": "driving-car"
         },
         {
-          "node": "tram-vip-tramlink.segment-02.004",
+          "node": "tram-vip-tramlink.segment-02.005",
           "length": 3.1614,
           "offset": [0.0, 0, 10.9264],
           "role": "car"
         },
         {
-          "node": "tram-vip-tramlink.segment-03.004",
+          "node": "tram-vip-tramlink.segment-03.005",
           "length": 7.245,
           "offset": [0.0, 0, 5.4632],
           "role": "car"
         },
         {
-          "node": "tram-vip-tramlink.segment-04.004",
+          "node": "tram-vip-tramlink.segment-04.005",
           "length": 3.1614,
           "offset": [0.0, 0, -0.0],
           "role": "car"
         },
         {
-          "node": "tram-vip-tramlink.segment-05.004",
+          "node": "tram-vip-tramlink.segment-05.005",
           "length": 7.245,
           "offset": [0.0, 0, -5.4632],
           "role": "car"
         },
         {
-          "node": "tram-vip-tramlink.segment-06.004",
+          "node": "tram-vip-tramlink.segment-06.005",
           "length": 3.1614,
           "offset": [0.0, 0, -10.9264],
           "role": "car"
         },
         {
-          "node": "tram-vip-tramlink.segment-07.004",
+          "node": "tram-vip-tramlink.segment-07.005",
           "length": 8.2329,
           "offset": [0.0, 0, -16.8836],
           "role": "driving-car"
@@ -1226,7 +1226,7 @@
       "bytes": 75696,
       "segments": [
         {
-          "node": "bus-bvg-solo.segment-01.004",
+          "node": "bus-bvg-solo.segment-01.005",
           "length": 12.0,
           "offset": [0.0, 0, -0.0208],
           "role": "front"
@@ -1259,13 +1259,13 @@
       "bytes": 113000,
       "segments": [
         {
-          "node": "bus-bvg-articulated.segment-01.004",
+          "node": "bus-bvg-articulated.segment-01.005",
           "length": 10.3118,
           "offset": [0.0, 0, 3.8233],
           "role": "front"
         },
         {
-          "node": "bus-bvg-articulated.segment-02.004",
+          "node": "bus-bvg-articulated.segment-02.005",
           "length": 7.1082,
           "offset": [0.0, 0, -1.6226],
           "role": "trailer"
@@ -1298,7 +1298,7 @@
       "bytes": 76656,
       "segments": [
         {
-          "node": "bus-bvg-electric.segment-01.004",
+          "node": "bus-bvg-electric.segment-01.005",
           "length": 12.0,
           "offset": [0.0, 0, -0.0208],
           "role": "front"
@@ -1331,13 +1331,13 @@
       "bytes": 122468,
       "segments": [
         {
-          "node": "bus-bvg-electric-articulated.segment-01.004",
+          "node": "bus-bvg-electric-articulated.segment-01.005",
           "length": 10.3118,
           "offset": [0.0, 0, 3.8233],
           "role": "front"
         },
         {
-          "node": "bus-bvg-electric-articulated.segment-02.004",
+          "node": "bus-bvg-electric-articulated.segment-02.005",
           "length": 7.1082,
           "offset": [0.0, 0, -1.6226],
           "role": "trailer"
@@ -1370,7 +1370,7 @@
       "bytes": 101592,
       "segments": [
         {
-          "node": "bus-bvg-double-deck.segment-01.004",
+          "node": "bus-bvg-double-deck.segment-01.005",
           "length": 13.8,
           "offset": [0.0, 0, -0.0207],
           "role": "front"
@@ -1403,7 +1403,7 @@
       "bytes": 82280,
       "segments": [
         {
-          "node": "bus-heritage-double-deck.segment-01.004",
+          "node": "bus-heritage-double-deck.segment-01.005",
           "length": 11.5,
           "offset": [-0.0, 0, -0.0208],
           "role": "front"
@@ -1436,7 +1436,7 @@
       "bytes": 76312,
       "segments": [
         {
-          "node": "bus-regional.segment-01.004",
+          "node": "bus-regional.segment-01.005",
           "length": 12.8,
           "offset": [0.0, 0, -0.0207],
           "role": "front"
@@ -1469,7 +1469,7 @@
       "bytes": 75708,
       "segments": [
         {
-          "node": "bus-airport-coach.segment-01.004",
+          "node": "bus-airport-coach.segment-01.005",
           "length": 13.0,
           "offset": [0.0, 0, -0.0208],
           "role": "front"
@@ -1502,31 +1502,31 @@
       "bytes": 396876,
       "segments": [
         {
-          "node": "db-regio-dosto.segment-01.004",
+          "node": "db-regio-dosto.segment-01.005",
           "length": 26.5472,
           "offset": [-0.0, 0, 49.7779],
           "role": "driving-car"
         },
         {
-          "node": "db-regio-dosto.segment-02.004",
+          "node": "db-regio-dosto.segment-02.005",
           "length": 26.5472,
           "offset": [-0.0, 0, 22.9507],
           "role": "car"
         },
         {
-          "node": "db-regio-dosto.segment-03.004",
+          "node": "db-regio-dosto.segment-03.005",
           "length": 26.5472,
           "offset": [-0.0, 0, -3.8765],
           "role": "car"
         },
         {
-          "node": "db-regio-dosto.segment-04.004",
+          "node": "db-regio-dosto.segment-04.005",
           "length": 26.5472,
           "offset": [-0.0, 0, -30.7037],
           "role": "car"
         },
         {
-          "node": "db-regio-dosto.segment-05.004",
+          "node": "db-regio-dosto.segment-05.005",
           "length": 18.8913,
           "offset": [-0.0, 0, -53.7029],
           "role": "locomotive"
@@ -1559,31 +1559,31 @@
       "bytes": 251916,
       "segments": [
         {
-          "node": "db-talent2.segment-01.004",
+          "node": "db-talent2.segment-01.005",
           "length": 17.376,
           "offset": [0.0, 0, 35.312],
           "role": "driving-car"
         },
         {
-          "node": "db-talent2.segment-02.004",
+          "node": "db-talent2.segment-02.005",
           "length": 17.376,
           "offset": [0.0, 0, 17.656],
           "role": "car"
         },
         {
-          "node": "db-talent2.segment-03.004",
+          "node": "db-talent2.segment-03.005",
           "length": 17.376,
           "offset": [0.0, 0, -0.0],
           "role": "car"
         },
         {
-          "node": "db-talent2.segment-04.004",
+          "node": "db-talent2.segment-04.005",
           "length": 17.376,
           "offset": [0.0, 0, -17.656],
           "role": "car"
         },
         {
-          "node": "db-talent2.segment-05.004",
+          "node": "db-talent2.segment-05.005",
           "length": 17.376,
           "offset": [0.0, 0, -35.312],
           "role": "driving-car"
@@ -1616,25 +1616,25 @@
       "bytes": 310628,
       "segments": [
         {
-          "node": "odeg-desiro-hc.segment-01.004",
+          "node": "odeg-desiro-hc.segment-01.005",
           "length": 26.103,
           "offset": [0.0, 0, 39.5745],
           "role": "driving-car"
         },
         {
-          "node": "odeg-desiro-hc.segment-02.004",
+          "node": "odeg-desiro-hc.segment-02.005",
           "length": 26.103,
           "offset": [0.0, 0, 13.1915],
           "role": "car"
         },
         {
-          "node": "odeg-desiro-hc.segment-03.004",
+          "node": "odeg-desiro-hc.segment-03.005",
           "length": 26.103,
           "offset": [0.0, 0, -13.1915],
           "role": "car"
         },
         {
-          "node": "odeg-desiro-hc.segment-04.004",
+          "node": "odeg-desiro-hc.segment-04.005",
           "length": 26.103,
           "offset": [0.0, 0, -39.5745],
           "role": "driving-car"
@@ -1667,25 +1667,25 @@
       "bytes": 339348,
       "segments": [
         {
-          "node": "odeg-kiss.segment-01.004",
+          "node": "odeg-kiss.segment-01.005",
           "length": 26.095,
           "offset": [0.0, 0, 39.5625],
           "role": "driving-car"
         },
         {
-          "node": "odeg-kiss.segment-02.004",
+          "node": "odeg-kiss.segment-02.005",
           "length": 26.095,
           "offset": [0.0, 0, 13.1875],
           "role": "car"
         },
         {
-          "node": "odeg-kiss.segment-03.004",
+          "node": "odeg-kiss.segment-03.005",
           "length": 26.095,
           "offset": [0.0, 0, -13.1875],
           "role": "car"
         },
         {
-          "node": "odeg-kiss.segment-04.004",
+          "node": "odeg-kiss.segment-04.005",
           "length": 26.095,
           "offset": [0.0, 0, -39.5625],
           "role": "driving-car"
@@ -1718,13 +1718,13 @@
       "bytes": 133328,
       "segments": [
         {
-          "node": "neb-mireo-b.segment-01.004",
+          "node": "neb-mireo-b.segment-01.005",
           "length": 23.14,
           "offset": [0.0, 0, 11.71],
           "role": "driving-car"
         },
         {
-          "node": "neb-mireo-b.segment-02.004",
+          "node": "neb-mireo-b.segment-02.005",
           "length": 23.14,
           "offset": [0.0, 0, -11.71],
           "role": "driving-car"
@@ -1757,13 +1757,13 @@
       "bytes": 135344,
       "segments": [
         {
-          "node": "neb-mireo-h.segment-01.004",
+          "node": "neb-mireo-h.segment-01.005",
           "length": 23.14,
           "offset": [0.0, 0, 11.71],
           "role": "driving-car"
         },
         {
-          "node": "neb-mireo-h.segment-02.004",
+          "node": "neb-mireo-h.segment-02.005",
           "length": 23.14,
           "offset": [0.0, 0, -11.71],
           "role": "driving-car"
@@ -1796,13 +1796,13 @@
       "bytes": 126468,
       "segments": [
         {
-          "node": "neb-pesa-link.segment-01.004",
+          "node": "neb-pesa-link.segment-01.005",
           "length": 21.725,
           "offset": [0.0, 0, 11.0025],
           "role": "driving-car"
         },
         {
-          "node": "neb-pesa-link.segment-02.004",
+          "node": "neb-pesa-link.segment-02.005",
           "length": 21.725,
           "offset": [0.0, 0, -11.0025],
           "role": "driving-car"
@@ -1835,13 +1835,13 @@
       "bytes": 136404,
       "segments": [
         {
-          "node": "db-lint41.segment-01.004",
+          "node": "db-lint41.segment-01.005",
           "length": 20.81,
           "offset": [0.0, 0, 10.545],
           "role": "driving-car"
         },
         {
-          "node": "db-lint41.segment-02.004",
+          "node": "db-lint41.segment-02.005",
           "length": 20.81,
           "offset": [0.0, 0, -10.545],
           "role": "driving-car"
@@ -1874,67 +1874,67 @@
       "bytes": 734436,
       "segments": [
         {
-          "node": "ice-1.segment-01.004",
+          "node": "ice-1.segment-01.005",
           "length": 20.3234,
           "offset": [0.0, 0, 129.3383],
           "role": "power-head"
         },
         {
-          "node": "ice-1.segment-02.004",
+          "node": "ice-1.segment-02.005",
           "length": 26.1726,
           "offset": [0.0, 0, 105.8103],
           "role": "car"
         },
         {
-          "node": "ice-1.segment-03.004",
+          "node": "ice-1.segment-03.005",
           "length": 26.1726,
           "offset": [0.0, 0, 79.3577],
           "role": "car"
         },
         {
-          "node": "ice-1.segment-04.004",
+          "node": "ice-1.segment-04.005",
           "length": 26.1726,
           "offset": [0.0, 0, 52.9052],
           "role": "car"
         },
         {
-          "node": "ice-1.segment-05.004",
+          "node": "ice-1.segment-05.005",
           "length": 26.1726,
           "offset": [0.0, 0, 26.4526],
           "role": "car"
         },
         {
-          "node": "ice-1.segment-06.004",
+          "node": "ice-1.segment-06.005",
           "length": 26.1726,
           "offset": [0.0, 0, -0.0],
           "role": "car"
         },
         {
-          "node": "ice-1.segment-07.004",
+          "node": "ice-1.segment-07.005",
           "length": 26.1726,
           "offset": [0.0, 0, -26.4526],
           "role": "car"
         },
         {
-          "node": "ice-1.segment-08.004",
+          "node": "ice-1.segment-08.005",
           "length": 26.1726,
           "offset": [0.0, 0, -52.9052],
           "role": "car"
         },
         {
-          "node": "ice-1.segment-09.004",
+          "node": "ice-1.segment-09.005",
           "length": 26.1726,
           "offset": [0.0, 0, -79.3577],
           "role": "car"
         },
         {
-          "node": "ice-1.segment-10.004",
+          "node": "ice-1.segment-10.005",
           "length": 26.1726,
           "offset": [0.0, 0, -105.8103],
           "role": "car"
         },
         {
-          "node": "ice-1.segment-11.004",
+          "node": "ice-1.segment-11.005",
           "length": 20.3234,
           "offset": [0.0, 0, -129.3383],
           "role": "power-head"
@@ -1967,49 +1967,49 @@
       "bytes": 550316,
       "segments": [
         {
-          "node": "ice-2.segment-01.004",
+          "node": "ice-2.segment-01.005",
           "length": 20.3143,
           "offset": [0.0, 0, 92.5429],
           "role": "power-head"
         },
         {
-          "node": "ice-2.segment-02.004",
+          "node": "ice-2.segment-02.005",
           "length": 26.1608,
           "offset": [0.0, 0, 69.0253],
           "role": "car"
         },
         {
-          "node": "ice-2.segment-03.004",
+          "node": "ice-2.segment-03.005",
           "length": 26.1608,
           "offset": [0.0, 0, 42.5845],
           "role": "car"
         },
         {
-          "node": "ice-2.segment-04.004",
+          "node": "ice-2.segment-04.005",
           "length": 26.1608,
           "offset": [0.0, 0, 16.1437],
           "role": "car"
         },
         {
-          "node": "ice-2.segment-05.004",
+          "node": "ice-2.segment-05.005",
           "length": 26.1608,
           "offset": [0.0, 0, -10.2971],
           "role": "car"
         },
         {
-          "node": "ice-2.segment-06.004",
+          "node": "ice-2.segment-06.005",
           "length": 26.1608,
           "offset": [0.0, 0, -36.738],
           "role": "car"
         },
         {
-          "node": "ice-2.segment-07.004",
+          "node": "ice-2.segment-07.005",
           "length": 26.1608,
           "offset": [0.0, 0, -63.1788],
           "role": "car"
         },
         {
-          "node": "ice-2.segment-08.004",
+          "node": "ice-2.segment-08.005",
           "length": 26.1608,
           "offset": [0.0, 0, -89.6196],
           "role": "driving-car"
@@ -2042,49 +2042,49 @@
       "bytes": 537568,
       "segments": [
         {
-          "node": "ice-3.segment-01.004",
+          "node": "ice-3.segment-01.005",
           "length": 24.755,
           "offset": [0.0, 0, 87.6225],
           "role": "driving-car"
         },
         {
-          "node": "ice-3.segment-02.004",
+          "node": "ice-3.segment-02.005",
           "length": 24.755,
           "offset": [0.0, 0, 62.5875],
           "role": "car"
         },
         {
-          "node": "ice-3.segment-03.004",
+          "node": "ice-3.segment-03.005",
           "length": 24.755,
           "offset": [0.0, 0, 37.5525],
           "role": "car"
         },
         {
-          "node": "ice-3.segment-04.004",
+          "node": "ice-3.segment-04.005",
           "length": 24.755,
           "offset": [0.0, 0, 12.5175],
           "role": "car"
         },
         {
-          "node": "ice-3.segment-05.004",
+          "node": "ice-3.segment-05.005",
           "length": 24.755,
           "offset": [0.0, 0, -12.5175],
           "role": "car"
         },
         {
-          "node": "ice-3.segment-06.004",
+          "node": "ice-3.segment-06.005",
           "length": 24.755,
           "offset": [0.0, 0, -37.5525],
           "role": "car"
         },
         {
-          "node": "ice-3.segment-07.004",
+          "node": "ice-3.segment-07.005",
           "length": 24.755,
           "offset": [0.0, 0, -62.5875],
           "role": "car"
         },
         {
-          "node": "ice-3.segment-08.004",
+          "node": "ice-3.segment-08.005",
           "length": 24.755,
           "offset": [0.0, 0, -87.6225],
           "role": "driving-car"
@@ -2117,73 +2117,73 @@
       "bytes": 807116,
       "segments": [
         {
-          "node": "ice-4.segment-01.004",
+          "node": "ice-4.segment-01.005",
           "length": 28.5767,
           "offset": [0.0, 0, 158.7117],
           "role": "driving-car"
         },
         {
-          "node": "ice-4.segment-02.004",
+          "node": "ice-4.segment-02.005",
           "length": 28.5767,
           "offset": [0.0, 0, 129.855],
           "role": "car"
         },
         {
-          "node": "ice-4.segment-03.004",
+          "node": "ice-4.segment-03.005",
           "length": 28.5767,
           "offset": [0.0, 0, 100.9983],
           "role": "car"
         },
         {
-          "node": "ice-4.segment-04.004",
+          "node": "ice-4.segment-04.005",
           "length": 28.5767,
           "offset": [0.0, 0, 72.1417],
           "role": "car"
         },
         {
-          "node": "ice-4.segment-05.004",
+          "node": "ice-4.segment-05.005",
           "length": 28.5767,
           "offset": [0.0, 0, 43.285],
           "role": "car"
         },
         {
-          "node": "ice-4.segment-06.004",
+          "node": "ice-4.segment-06.005",
           "length": 28.5767,
           "offset": [0.0, 0, 14.4283],
           "role": "car"
         },
         {
-          "node": "ice-4.segment-07.004",
+          "node": "ice-4.segment-07.005",
           "length": 28.5767,
           "offset": [0.0, 0, -14.4283],
           "role": "car"
         },
         {
-          "node": "ice-4.segment-08.004",
+          "node": "ice-4.segment-08.005",
           "length": 28.5767,
           "offset": [0.0, 0, -43.285],
           "role": "car"
         },
         {
-          "node": "ice-4.segment-09.004",
+          "node": "ice-4.segment-09.005",
           "length": 28.5767,
           "offset": [0.0, 0, -72.1417],
           "role": "car"
         },
         {
-          "node": "ice-4.segment-10.004",
+          "node": "ice-4.segment-10.005",
           "length": 28.5767,
           "offset": [0.0, 0, -100.9983],
           "role": "car"
         },
         {
-          "node": "ice-4.segment-11.004",
+          "node": "ice-4.segment-11.005",
           "length": 28.5767,
           "offset": [0.0, 0, -129.855],
           "role": "car"
         },
         {
-          "node": "ice-4.segment-12.004",
+          "node": "ice-4.segment-12.005",
           "length": 28.5767,
           "offset": [0.0, 0, -158.7117],
           "role": "driving-car"
@@ -2216,43 +2216,43 @@
       "bytes": 480836,
       "segments": [
         {
-          "node": "ice-t.segment-01.004",
+          "node": "ice-t.segment-01.005",
           "length": 26.1886,
           "offset": [0.0, 0, 79.4057],
           "role": "driving-car"
         },
         {
-          "node": "ice-t.segment-02.004",
+          "node": "ice-t.segment-02.005",
           "length": 26.1886,
           "offset": [0.0, 0, 52.9371],
           "role": "car"
         },
         {
-          "node": "ice-t.segment-03.004",
+          "node": "ice-t.segment-03.005",
           "length": 26.1886,
           "offset": [0.0, 0, 26.4686],
           "role": "car"
         },
         {
-          "node": "ice-t.segment-04.004",
+          "node": "ice-t.segment-04.005",
           "length": 26.1886,
           "offset": [0.0, 0, -0.0],
           "role": "car"
         },
         {
-          "node": "ice-t.segment-05.004",
+          "node": "ice-t.segment-05.005",
           "length": 26.1886,
           "offset": [0.0, 0, -26.4686],
           "role": "car"
         },
         {
-          "node": "ice-t.segment-06.004",
+          "node": "ice-t.segment-06.005",
           "length": 26.1886,
           "offset": [0.0, 0, -52.9371],
           "role": "car"
         },
         {
-          "node": "ice-t.segment-07.004",
+          "node": "ice-t.segment-07.005",
           "length": 26.1886,
           "offset": [0.0, 0, -79.4057],
           "role": "driving-car"
@@ -2285,37 +2285,37 @@
       "bytes": 471064,
       "segments": [
         {
-          "node": "ic2-dosto.segment-01.004",
+          "node": "ic2-dosto.segment-01.005",
           "length": 26.7175,
           "offset": [-0.0, 0, 63.5927],
           "role": "driving-car"
         },
         {
-          "node": "ic2-dosto.segment-02.004",
+          "node": "ic2-dosto.segment-02.005",
           "length": 26.7175,
           "offset": [-0.0, 0, 36.5952],
           "role": "car"
         },
         {
-          "node": "ic2-dosto.segment-03.004",
+          "node": "ic2-dosto.segment-03.005",
           "length": 26.7175,
           "offset": [-0.0, 0, 9.5977],
           "role": "car"
         },
         {
-          "node": "ic2-dosto.segment-04.004",
+          "node": "ic2-dosto.segment-04.005",
           "length": 26.7175,
           "offset": [-0.0, 0, -17.3998],
           "role": "car"
         },
         {
-          "node": "ic2-dosto.segment-05.004",
+          "node": "ic2-dosto.segment-05.005",
           "length": 26.7175,
           "offset": [-0.0, 0, -44.3973],
           "role": "car"
         },
         {
-          "node": "ic2-dosto.segment-06.004",
+          "node": "ic2-dosto.segment-06.005",
           "length": 19.0125,
           "offset": [-0.0, 0, -67.5423],
           "role": "locomotive"
@@ -2348,43 +2348,43 @@
       "bytes": 471700,
       "segments": [
         {
-          "node": "ec-coaches.segment-01.004",
+          "node": "ec-coaches.segment-01.005",
           "length": 18.6416,
           "offset": [0.0, 0, 79.3852],
           "role": "locomotive"
         },
         {
-          "node": "ec-coaches.segment-02.004",
+          "node": "ec-coaches.segment-02.005",
           "length": 26.1964,
           "offset": [0.0, 0, 56.6862],
           "role": "car"
         },
         {
-          "node": "ec-coaches.segment-03.004",
+          "node": "ec-coaches.segment-03.005",
           "length": 26.1964,
           "offset": [0.0, 0, 30.2098],
           "role": "car"
         },
         {
-          "node": "ec-coaches.segment-04.004",
+          "node": "ec-coaches.segment-04.005",
           "length": 26.1964,
           "offset": [0.0, 0, 3.7334],
           "role": "car"
         },
         {
-          "node": "ec-coaches.segment-05.004",
+          "node": "ec-coaches.segment-05.005",
           "length": 26.1964,
           "offset": [0.0, 0, -22.743],
           "role": "car"
         },
         {
-          "node": "ec-coaches.segment-06.004",
+          "node": "ec-coaches.segment-06.005",
           "length": 26.1964,
           "offset": [0.0, 0, -49.2194],
           "role": "car"
         },
         {
-          "node": "ec-coaches.segment-07.004",
+          "node": "ec-coaches.segment-07.005",
           "length": 26.1964,
           "offset": [0.0, 0, -75.6958],
           "role": "driving-car"
@@ -2417,61 +2417,61 @@
       "bytes": 673308,
       "segments": [
         {
-          "node": "cd-comfortjet.segment-01.004",
+          "node": "cd-comfortjet.segment-01.005",
           "length": 26.1007,
           "offset": [-0.0, 0, 114.9011],
           "role": "driving-car"
         },
         {
-          "node": "cd-comfortjet.segment-02.004",
+          "node": "cd-comfortjet.segment-02.005",
           "length": 26.1007,
           "offset": [-0.0, 0, 88.5204],
           "role": "car"
         },
         {
-          "node": "cd-comfortjet.segment-03.004",
+          "node": "cd-comfortjet.segment-03.005",
           "length": 26.1007,
           "offset": [-0.0, 0, 62.1397],
           "role": "car"
         },
         {
-          "node": "cd-comfortjet.segment-04.004",
+          "node": "cd-comfortjet.segment-04.005",
           "length": 26.1007,
           "offset": [-0.0, 0, 35.759],
           "role": "car"
         },
         {
-          "node": "cd-comfortjet.segment-05.004",
+          "node": "cd-comfortjet.segment-05.005",
           "length": 26.1007,
           "offset": [-0.0, 0, 9.3783],
           "role": "car"
         },
         {
-          "node": "cd-comfortjet.segment-06.004",
+          "node": "cd-comfortjet.segment-06.005",
           "length": 26.1007,
           "offset": [-0.0, 0, -17.0024],
           "role": "car"
         },
         {
-          "node": "cd-comfortjet.segment-07.004",
+          "node": "cd-comfortjet.segment-07.005",
           "length": 26.1007,
           "offset": [-0.0, 0, -43.3832],
           "role": "car"
         },
         {
-          "node": "cd-comfortjet.segment-08.004",
+          "node": "cd-comfortjet.segment-08.005",
           "length": 26.1007,
           "offset": [-0.0, 0, -69.7639],
           "role": "car"
         },
         {
-          "node": "cd-comfortjet.segment-09.004",
+          "node": "cd-comfortjet.segment-09.005",
           "length": 26.1007,
           "offset": [-0.0, 0, -96.1446],
           "role": "car"
         },
         {
-          "node": "cd-comfortjet.segment-10.004",
+          "node": "cd-comfortjet.segment-10.005",
           "length": 18.5735,
           "offset": [-0.0, 0, -118.7617],
           "role": "locomotive"
@@ -2504,25 +2504,25 @@
       "bytes": 284128,
       "segments": [
         {
-          "node": "rail-generic.segment-01.004",
+          "node": "rail-generic.segment-01.005",
           "length": 24.29,
           "offset": [0.0, 0, 36.855],
           "role": "driving-car"
         },
         {
-          "node": "rail-generic.segment-02.004",
+          "node": "rail-generic.segment-02.005",
           "length": 24.29,
           "offset": [0.0, 0, 12.285],
           "role": "car"
         },
         {
-          "node": "rail-generic.segment-03.004",
+          "node": "rail-generic.segment-03.005",
           "length": 24.29,
           "offset": [0.0, 0, -12.285],
           "role": "car"
         },
         {
-          "node": "rail-generic.segment-04.004",
+          "node": "rail-generic.segment-04.005",
           "length": 24.29,
           "offset": [0.0, 0, -36.855],
           "role": "driving-car"
@@ -2555,7 +2555,7 @@
       "bytes": 101200,
       "segments": [
         {
-          "node": "segment-01.004",
+          "node": "segment-01.005",
           "length": 18.5,
           "offset": [-0.0, 0, 0.0],
           "role": "hull"
