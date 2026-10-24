@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { BERLIN_TIMEZONE } from "@/lib/geo";
@@ -15,6 +15,7 @@ import { useTransitStore } from "@/map/transit/store";
 
 import { CloseIcon, LayersIcon, PlusIcon } from "./icons";
 import { TransitLineBrowser } from "./transit-line-browser";
+import { TransitReplayControls } from "./transit-replay-controls";
 import { TransitVehicleCard } from "./transit-vehicle-card";
 
 const NUMBER = new Intl.NumberFormat("en-GB");
@@ -45,6 +46,20 @@ function connectionLabel(
       snapshot.status === "degraded" ? "Partial coverage" : "Live estimates",
     live: snapshot.status === "live",
   };
+}
+
+function connectionTone(
+  enabled: boolean,
+  mode: "live" | "replay",
+  live: boolean
+): string {
+  if (!enabled) {
+    return "bg-muted-foreground";
+  }
+  if (mode === "replay") {
+    return "bg-sky-500";
+  }
+  return live ? "bg-emerald-500" : "bg-amber-500";
 }
 
 function NetworkStats({ now }: { now: number }) {
@@ -183,33 +198,31 @@ function FeedDetails({
   );
 }
 
-/** Browse the live network by line, then direction, then individual vehicle. */
+/** Browse the network at the shared live or replay time. */
 export function TransitPanel() {
   const [expanded, setExpanded] = useState(true);
   const [lineKey, setLineKey] = useState<string | null>(null);
-  const [now, setNow] = useState(0);
+  const now = useTransitStore(
+    (state) => Math.floor(state.clockTime / 1000) * 1000
+  );
+  const mode = useTransitStore((state) => state.mode);
+  const replayStatus = useTransitStore((state) => state.replayStatus);
   const snapshot = useTransitStore((state) => state.snapshot);
   const enabled = useTransitStore((state) => state.enabled);
   const selectedId = useTransitStore((state) => state.selectedId);
   const error = useTransitStore((state) => state.error);
   const setEnabled = useTransitStore((state) => state.setEnabled);
   const selectVehicle = useTransitStore((state) => state.selectVehicle);
-  useEffect(() => {
-    const tick = () => setNow(Date.now());
-    tick();
-    const timer = window.setInterval(tick, 5000);
-    return () => window.clearInterval(timer);
-  }, []);
   const vehicle = snapshot?.vehicles.find(
     (item) =>
       item.id === selectedId && now - item.observedAt <= MAX_VEHICLE_AGE_MS
   );
   const open = expanded || Boolean(selectedId);
-  const connection = connectionLabel(snapshot, error, now);
-  let connectionTone = "bg-muted-foreground";
-  if (enabled) {
-    connectionTone = connection.live ? "bg-emerald-500" : "bg-amber-500";
-  }
+  const connection =
+    mode === "replay"
+      ? { text: "Saved transport replay", live: false }
+      : connectionLabel(snapshot, error, now);
+  const tone = connectionTone(enabled, mode, connection.live);
   const toggleExpanded = () => {
     setExpanded(!open);
     if (open) {
@@ -218,10 +231,10 @@ export function TransitPanel() {
   };
   return (
     <aside
-      aria-label="Live public transport"
-      className="border-border/80 bg-card/95 pointer-events-auto w-[min(23rem,calc(100vw-1.5rem))] overflow-hidden rounded-[24px] border shadow-[0_8px_40px_-12px_rgb(0_0_0/25%)] backdrop-blur-xl"
+      aria-label="Public transport"
+      className="border-border/80 bg-card/95 pointer-events-auto flex max-h-[calc(100dvh-6.5rem)] w-[min(23rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-[24px] border shadow-[0_8px_40px_-12px_rgb(0_0_0/25%)] backdrop-blur-xl"
     >
-      <div className="flex items-start gap-3 px-4 pt-4 pb-3">
+      <div className="flex shrink-0 items-start gap-3 px-4 pt-4 pb-3">
         <button
           aria-controls="transit-panel-details"
           aria-expanded={open}
@@ -240,7 +253,7 @@ export function TransitPanel() {
             <span className="text-muted-foreground mt-1 flex items-center gap-1.5 text-xs">
               <span
                 aria-hidden="true"
-                className={cn("size-1.5 rounded-full", connectionTone)}
+                className={cn("size-1.5 rounded-full", tone)}
               />
               {enabled ? connection.text : "Transport hidden"}
             </span>
@@ -270,6 +283,7 @@ export function TransitPanel() {
           {open ? <CloseIcon size={14} /> : <PlusIcon size={14} />}
         </Button>
       </div>
+      <TransitReplayControls />
       {!open && (
         <div className="text-muted-foreground px-5 pb-3 text-xs">
           Explore active lines, vehicles and delays
@@ -277,36 +291,44 @@ export function TransitPanel() {
       )}
       {open && (
         <div
-          className="max-h-[min(72dvh,44rem)] overflow-y-auto overscroll-contain"
+          className="max-h-[min(72dvh,44rem)] min-h-0 overflow-y-auto overscroll-contain"
           id="transit-panel-details"
         >
-          {vehicle ? (
-            <TransitVehicleCard
-              now={now}
-              onBack={() => selectVehicle(null)}
-              vehicle={vehicle}
-            />
-          ) : (
-            <>
-              {!lineKey && (
-                <>
-                  <NetworkStats now={now} />
-                  <ModeFilters now={now} />
-                </>
-              )}
-              {selectedId && (
-                <p className="text-muted-foreground px-4 pb-2 text-xs">
-                  That vehicle has left the current feed.
-                </p>
-              )}
-              <TransitLineBrowser
-                lineKey={lineKey}
+          {(mode === "live" || replayStatus === "ready") &&
+            (vehicle ? (
+              <TransitVehicleCard
                 now={now}
-                onLineChange={setLineKey}
+                onBack={() => selectVehicle(null)}
+                vehicle={vehicle}
               />
-            </>
+            ) : (
+              <>
+                {!lineKey && (
+                  <>
+                    <NetworkStats now={now} />
+                    <ModeFilters now={now} />
+                  </>
+                )}
+                {selectedId && (
+                  <p className="text-muted-foreground px-4 pb-2 text-xs">
+                    {mode === "replay"
+                      ? "That vehicle is absent at this saved time."
+                      : "That vehicle has left the current feed."}
+                  </p>
+                )}
+                <TransitLineBrowser
+                  lineKey={lineKey}
+                  now={now}
+                  onLineChange={setLineKey}
+                />
+              </>
+            ))}
+          {snapshot && (
+            <FeedDetails
+              error={mode === "live" ? error : null}
+              snapshot={snapshot}
+            />
           )}
-          <FeedDetails error={error} snapshot={snapshot} />
         </div>
       )}
     </aside>

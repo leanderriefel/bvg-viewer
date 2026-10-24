@@ -10,6 +10,11 @@ import type { TransitSnapshot } from "@/map/transit/model";
 const compress = promisify(gzip);
 export const HISTORY_SLOTS = 120;
 
+export function historyFilename(at: number): string {
+  const slot = Math.floor(at / 30_000) % HISTORY_SLOTS;
+  return `snapshot-${String(slot).padStart(3, "0")}.json.gz`;
+}
+
 export interface TransitStorage {
   load: () => Promise<TransitSnapshot | null>;
   save: (snapshot: TransitSnapshot) => Promise<void>;
@@ -81,11 +86,9 @@ export function createTransitStorage(directory: string): TransitStorage {
       await writeAtomically(latest, content);
 
       // Time-based slots survive restarts without an unbounded append-only log.
-      const slot =
-        Math.floor((snapshot.updatedAt ?? Date.now()) / 30_000) % HISTORY_SLOTS;
       const history = path.join(
         directory,
-        `snapshot-${String(slot).padStart(3, "0")}.json.gz`
+        historyFilename(snapshot.updatedAt ?? Date.now())
       );
       await writeAtomically(history, await compress(content));
     },

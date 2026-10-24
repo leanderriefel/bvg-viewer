@@ -161,18 +161,23 @@ function placeFootprint(
 function refreshRenderVehicle(
   render: RenderVehicle,
   vehicle: TransitVehicle,
-  time: number
+  time: number,
+  state: TransitState
 ): RenderVehicle {
   if (
+    state.mode === "live" &&
     vehicle.observedAt !== render.vehicle.observedAt &&
     time - render.drawnAt < 500
   ) {
     render.correctionTimeMs = forecastCorrectionMs(
       vehicle,
       render.pose.coordinates,
-      Date.now()
+      state.clockTime
     );
     render.correctedAt = time;
+  }
+  if (state.mode === "replay") {
+    render.correctionTimeMs = 0;
   }
   render.vehicle = vehicle;
   render.hasHeading = hasForecastHeading(vehicle);
@@ -193,7 +198,7 @@ function installLayers(
       data,
       maxzoom: 16,
       buffer: 16,
-      attribution: "Live transport: VBB via transport.rest",
+      attribution: "Transport: VBB via transport.rest",
     });
   }
   if (!map.getSource(TRANSIT_POINT_SOURCE_ID)) {
@@ -328,7 +333,8 @@ function updateVehicleBearing(
     : (routeHeading ?? render.drawnBearing);
   // A round marker had no visible orientation to interpolate from. Give its
   // first directional shape the actual heading instead of rotating from north.
-  const canBlendBearing = render.bearingInitialized && render.headingTrusted;
+  const canBlendBearing =
+    state.mode === "live" && render.bearingInitialized && render.headingTrusted;
   render.headingTrusted ||= render.hasHeading || routeHeading !== null;
   render.feature.properties.headingKnown = render.headingTrusted;
   const blend = 1 - Math.exp(-(time - render.drawnAt) / 300);
@@ -351,7 +357,7 @@ function updateVisibleVehicles(
   const east = bounds.getEast() + 0.002;
   const south = bounds.getSouth() - 0.002;
   const north = bounds.getNorth() + 0.002;
-  const now = Date.now();
+  const now = state.clockTime;
   data.features.length = 0;
   points.features.length = 0;
   for (const render of renderVehicles) {
@@ -509,7 +515,7 @@ export function useTransitLayer(map: MapLibreMap | null, ready: boolean): void {
             if (!render) {
               return makeRenderVehicle(vehicle);
             }
-            return refreshRenderVehicle(render, vehicle, time);
+            return refreshRenderVehicle(render, vehicle, time, state);
           }) ?? [];
         lastVehicles = vehicles;
       }

@@ -75,7 +75,11 @@ export function useVehicleFollow(
       const vehicle = state.snapshot?.vehicles.find(
         (candidate) => candidate.id === id
       );
-      const position = vehicle && sampleVehicle(vehicle, Date.now(), pose);
+      // A snapshot can be loading at a replay boundary. Keep the follow target until it arrives.
+      if (state.mode === "replay" && state.replayStatus === "loading") {
+        return;
+      }
+      const position = vehicle && sampleVehicle(vehicle, state.clockTime, pose);
       if (!position) {
         state.stopFollowing();
         return;

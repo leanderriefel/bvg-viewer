@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiTransitRouteImport } from './routes/api.transit'
+import { Route as ApiTransitHistoryRouteImport } from './routes/api.transit-history'
 import { Route as ApiTransitRouteRouteImport } from './routes/api.transit-route'
 
 const IndexRoute = IndexRouteImport.update({
@@ -23,6 +24,11 @@ const ApiTransitRoute = ApiTransitRouteImport.update({
   path: '/api/transit',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiTransitHistoryRoute = ApiTransitHistoryRouteImport.update({
+  id: '/api/transit-history',
+  path: '/api/transit-history',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiTransitRouteRoute = ApiTransitRouteRouteImport.update({
   id: '/api/transit-route',
   path: '/api/transit-route',
@@ -32,30 +38,40 @@ const ApiTransitRouteRoute = ApiTransitRouteRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/api/transit': typeof ApiTransitRoute
+  '/api/transit-history': typeof ApiTransitHistoryRoute
   '/api/transit-route': typeof ApiTransitRouteRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/api/transit': typeof ApiTransitRoute
+  '/api/transit-history': typeof ApiTransitHistoryRoute
   '/api/transit-route': typeof ApiTransitRouteRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/api/transit': typeof ApiTransitRoute
+  '/api/transit-history': typeof ApiTransitHistoryRoute
   '/api/transit-route': typeof ApiTransitRouteRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/transit' | '/api/transit-route'
+  fullPaths:
+    '/' | '/api/transit' | '/api/transit-history' | '/api/transit-route'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/transit' | '/api/transit-route'
-  id: '__root__' | '/' | '/api/transit' | '/api/transit-route'
+  to: '/' | '/api/transit' | '/api/transit-history' | '/api/transit-route'
+  id:
+    | '__root__'
+    | '/'
+    | '/api/transit'
+    | '/api/transit-history'
+    | '/api/transit-route'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApiTransitRoute: typeof ApiTransitRoute
+  ApiTransitHistoryRoute: typeof ApiTransitHistoryRoute
   ApiTransitRouteRoute: typeof ApiTransitRouteRoute
 }
 
@@ -75,6 +91,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiTransitRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/transit-history': {
+      id: '/api/transit-history'
+      path: '/api/transit-history'
+      fullPath: '/api/transit-history'
+      preLoaderRoute: typeof ApiTransitHistoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/transit-route': {
       id: '/api/transit-route'
       path: '/api/transit-route'
@@ -88,6 +111,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApiTransitRoute: ApiTransitRoute,
+  ApiTransitHistoryRoute: ApiTransitHistoryRoute,
   ApiTransitRouteRoute: ApiTransitRouteRoute,
 }
 export const routeTree = rootRouteImport
