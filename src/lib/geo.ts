@@ -14,12 +14,17 @@ export const BERLIN_CENTER: LngLat = [13.405, 52.52];
 
 export const BERLIN_TIMEZONE = "Europe/Berlin";
 
-export const DEFAULT_CAMERA = {
-  bearing: -18,
-  center: BERLIN_CENTER,
-  pitch: 55,
-  zoom: 14.2,
+const CIRCUIT_CENTER: LngLat = [13.3802, 52.4981];
+
+/** Circuit, Möckernstraße 120, framed for the opening descent and landmark. */
+export const CIRCUIT_CAMERA = {
+  bearing: -70,
+  center: CIRCUIT_CENTER,
+  pitch: 60,
+  zoom: 17.8,
 } as const;
+
+export const DEFAULT_CAMERA = CIRCUIT_CAMERA;
 
 /** Zoom at which the flat fills hand over to real extruded geometry. */
 export const EXTRUSION_MIN_ZOOM = 14;

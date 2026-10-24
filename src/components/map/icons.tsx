@@ -95,6 +95,7 @@ const CATEGORY_ICONS: Record<
   LandmarkCategory,
   (p: IconProps) => React.ReactElement
 > = {
+  community: BuildingIcon,
   district: HomeIcon,
   icon: StarIconC,
   museum: BuildingIcon,

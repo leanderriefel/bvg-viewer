@@ -1,3 +1,4 @@
+import { CIRCUIT_CAMERA } from "@/lib/geo";
 import type { LngLat } from "@/lib/geo";
 
 /**
@@ -13,6 +14,7 @@ export type LandmarkCategory =
   | "icon"
   | "square"
   | "museum"
+  | "community"
   | "park"
   | "water"
   | "transport"
@@ -34,6 +36,7 @@ export interface Landmark {
 }
 
 export const LANDMARK_CATEGORY_LABEL: Record<LandmarkCategory, string> = {
+  community: "Community & coworking",
   district: "Districts",
   icon: "Landmarks",
   museum: "Museums & culture",
@@ -48,6 +51,7 @@ export const LANDMARK_CATEGORY_ORDER: LandmarkCategory[] = [
   "icon",
   "square",
   "museum",
+  "community",
   "park",
   "water",
   "transport",
@@ -418,6 +422,16 @@ export const LANDMARKS: Landmark[] = [
     name: "Tempodrom",
     pitch: 62,
     zoom: 17.2,
+  },
+
+  // -- Community & coworking -----------------------------------------------
+  {
+    ...CIRCUIT_CAMERA,
+    aliases: ["circuit berlin", "w3.hub", "w3hub", "w3 hub", "hackathon"],
+    category: "community",
+    hint: "Hackathons & coworking at Möckernstraße 120, Kreuzberg",
+    id: "circuit",
+    name: "Circuit",
   },
 
   // -- Parks ---------------------------------------------------------------

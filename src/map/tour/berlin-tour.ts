@@ -39,6 +39,7 @@ export const BERLIN_TOUR_STOPS: TourStop[] = [
   "fernsehturm",
   "east-side-gallery",
   "oberbaumbruecke",
+  "circuit",
 ].flatMap((id, index): TourStop[] => {
   const landmark = LANDMARKS_BY_ID.get(id);
   if (!landmark) {
