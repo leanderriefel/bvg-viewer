@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vite-plus/test";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import {
   MAX_ROUTE_POINTS,
@@ -11,6 +11,28 @@ import {
   TRIP_ROUTE_TTL_MS,
   TripRoutes,
 } from "./trips";
+
+afterEach(() => vi.useRealTimers());
+
+function uninitializedResponse(_response: Response): never {
+  throw new Error("Deferred route response was not initialized");
+}
+
+function deferredResponse() {
+  let complete: (response: Response) => void = uninitializedResponse;
+  // oxlint-disable-next-line promise/avoid-new -- Controlled responses verify overlapping rate-limit failures.
+  const promise = new Promise<Response>((resolve) => {
+    complete = resolve;
+  });
+  return { promise, resolve: (response: Response) => complete(response) };
+}
+
+function fakeTimerSleep(milliseconds: number): Promise<void> {
+  // oxlint-disable-next-line promise/avoid-new -- Fake timers must control route request scheduling too.
+  return new Promise((resolve) => {
+    setTimeout(resolve, milliseconds);
+  });
+}
 
 function trip(id = "trip-1") {
   return {
@@ -190,6 +212,69 @@ describe("full trip route shapes", () => {
     advance(1000);
     const recovered = await service.get("trip-1", "U9");
     expect(recovered.tripId).toBe("trip-1");
+  });
+
+  it("preserves the longest cooldown when in-flight route requests return 429", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1_000_000);
+    const first = deferredResponse();
+    const second = deferredResponse();
+    const request = vi
+      .fn<typeof fetch>()
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise)
+      .mockResolvedValue(Response.json(trip("trip-3")));
+    const service = new TripRoutes({ request, sleep: fakeTimerSleep });
+    const firstFailure = expect(
+      service.get("trip-1", "U9")
+    ).rejects.toMatchObject({ status: 429, retryAfter: 120 });
+    const secondFailure = expect(
+      service.get("trip-2", "U2")
+    ).rejects.toMatchObject({ status: 429, retryAfter: 119 });
+    await vi.advanceTimersByTimeAsync(TRIP_REQUEST_SPACING_MS);
+    expect(request).toHaveBeenCalledTimes(2);
+
+    first.resolve(
+      new Response(null, { status: 429, headers: { "retry-after": "120" } })
+    );
+    await firstFailure;
+    await vi.advanceTimersByTimeAsync(1000);
+    second.resolve(
+      new Response(null, { status: 429, headers: { "retry-after": "30" } })
+    );
+    await secondFailure;
+
+    await vi.advanceTimersByTimeAsync(60_000);
+    await expect(service.get("trip-3", "U3")).rejects.toMatchObject({
+      status: 429,
+      retryAfter: 59,
+    });
+    expect(request).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(59_000);
+    const recovered = await service.get("trip-3", "U3");
+    expect(recovered.tripId).toBe("trip-3");
+    expect(request).toHaveBeenCalledTimes(3);
+  });
+
+  it("recovers from oversized Retry-After headers after the bounded wait", async () => {
+    const { service, request, advance } = setup([
+      new Response(null, { status: 429, headers: { "retry-after": "1e308" } }),
+      Response.json(trip()),
+    ]);
+    await expect(service.get("trip-1", "U9")).rejects.toMatchObject({
+      status: 429,
+      retryAfter: 300,
+    });
+    advance(299_999);
+    await expect(service.get("trip-2", "U2")).rejects.toMatchObject({
+      status: 429,
+      retryAfter: 1,
+    });
+    expect(request).toHaveBeenCalledOnce();
+    advance(1);
+    const recovered = await service.get("trip-1", "U9");
+    expect(recovered.tripId).toBe("trip-1");
+    expect(request).toHaveBeenCalledTimes(2);
   });
 
   it.each([Response.json({ trip: {} }), new Response(null, { status: 502 })])(

@@ -12,6 +12,7 @@ import type { TransitStorage } from "./storage";
 export const TRANSIT_POLL_INTERVAL_MS = 30_000;
 export const REQUEST_SPACING_MS = 1000;
 export const RADAR_RESULTS = 512;
+const MAX_RETRY_AFTER_MS = 300_000;
 
 /** Small areas avoid the city-wide endpoint silently truncating at its result cap. */
 export function createRadarCells(bounds: BBox): BBox[] {
@@ -53,14 +54,24 @@ export function retryAfterMilliseconds(
   value: string | null,
   now: number
 ): number {
-  if (value) {
-    const seconds = Number(value);
-    if (Number.isFinite(seconds) && seconds >= 0) {
-      return Math.max(TRANSIT_POLL_INTERVAL_MS, seconds * 1000);
+  const header = value?.trim();
+  if (header) {
+    const seconds = Number(header);
+    if (Number.isFinite(seconds)) {
+      if (seconds < 0) {
+        return 60_000;
+      }
+      return Math.min(
+        MAX_RETRY_AFTER_MS,
+        Math.max(TRANSIT_POLL_INTERVAL_MS, seconds * 1000)
+      );
     }
-    const date = Date.parse(value);
+    const date = Date.parse(header);
     if (Number.isFinite(date)) {
-      return Math.max(TRANSIT_POLL_INTERVAL_MS, date - now);
+      return Math.min(
+        MAX_RETRY_AFTER_MS,
+        Math.max(TRANSIT_POLL_INTERVAL_MS, date - now)
+      );
     }
   }
   return 60_000;
@@ -297,7 +308,10 @@ export class TransitCollector {
         this.backoffUntil = Math.max(
           this.backoffUntil,
           this.now() +
-            Math.min(300_000, TRANSIT_POLL_INTERVAL_MS * 2 ** this.failedSweeps)
+            Math.min(
+              MAX_RETRY_AFTER_MS,
+              TRANSIT_POLL_INTERVAL_MS * 2 ** this.failedSweeps
+            )
         );
       } else {
         this.failedSweeps = 0;

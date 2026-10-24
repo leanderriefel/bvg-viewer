@@ -1,4 +1,4 @@
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { promisify } from "node:util";
@@ -42,6 +42,24 @@ async function replaceFile(
   }
 }
 
+async function writeAtomically(
+  destination: string,
+  data: string | Uint8Array
+): Promise<void> {
+  const temporary = `${destination}.tmp`;
+  try {
+    await writeFile(temporary, data);
+    await replaceFile(temporary, destination);
+  } catch (error) {
+    try {
+      await rm(temporary, { force: true });
+    } catch {
+      // A cleanup failure must not hide the error that prevented saving.
+    }
+    throw error;
+  }
+}
+
 /** A mounted local directory keeps the latest state and a bounded replay window. */
 export function createTransitStorage(directory: string): TransitStorage {
   return {
@@ -60,8 +78,7 @@ export function createTransitStorage(directory: string): TransitStorage {
       await mkdir(directory, { recursive: true });
       const content = JSON.stringify(snapshot);
       const latest = path.join(directory, "latest.json");
-      await writeFile(`${latest}.tmp`, content);
-      await replaceFile(`${latest}.tmp`, latest);
+      await writeAtomically(latest, content);
 
       // Time-based slots survive restarts without an unbounded append-only log.
       const slot =
@@ -70,8 +87,7 @@ export function createTransitStorage(directory: string): TransitStorage {
         directory,
         `snapshot-${String(slot).padStart(3, "0")}.json.gz`
       );
-      await writeFile(`${history}.tmp`, await compress(content));
-      await replaceFile(`${history}.tmp`, history);
+      await writeAtomically(history, await compress(content));
     },
   };
 }

@@ -240,6 +240,23 @@ describe("shared Berlin transit collection", () => {
     expect(retryAfterMilliseconds("0", 0)).toBe(30_000);
   });
 
+  it.each([
+    ["86400", 300_000],
+    ["1e308", 300_000],
+    ["Thu, 01 Jan 2099 00:00:00 GMT", 300_000],
+    ["5", 30_000],
+    ["Thu, 01 Jan 1970 00:00:00 GMT", 30_000],
+    ["not a retry value", 60_000],
+    [" ", 60_000],
+    ["-1", 60_000],
+    ["Infinity", 60_000],
+  ] as const)(
+    "bounds untrusted Retry-After %s to a safe timer",
+    (header, expected) => {
+      expect(retryAfterMilliseconds(header, 1_000_000)).toBe(expected);
+    }
+  );
+
   it("continues publishing in memory if durable storage is unavailable", async () => {
     const { collector, storage } = setup([Response.json(radar())]);
     storage.save.mockRejectedValueOnce(new Error("Read-only filesystem"));

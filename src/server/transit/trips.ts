@@ -115,15 +115,16 @@ export class TripRoutes {
       throw new TripRouteError("The route service is temporarily unavailable");
     }
     if (response.status === 429) {
+      const now = this.now();
       const wait = retryAfterMilliseconds(
         response.headers.get("retry-after"),
-        this.now()
+        now
       );
-      this.backoffUntil = this.now() + wait;
+      this.backoffUntil = Math.max(this.backoffUntil, now + wait);
       throw new TripRouteError(
         "Route updates are temporarily rate limited",
         429,
-        Math.ceil(wait / 1000)
+        Math.ceil((this.backoffUntil - now) / 1000)
       );
     }
     if (!response.ok) {
