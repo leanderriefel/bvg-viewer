@@ -1,5 +1,6 @@
 import type { Feature, FeatureCollection, Point, Polygon } from "geojson";
 import type {
+  ExpressionSpecification,
   GeoJSONSource,
   Map as MapLibreMap,
   MapLayerMouseEvent,
@@ -21,18 +22,40 @@ import { displayTransitLine } from "@/map/transit/network";
 import { forecastCorrectionMs } from "@/map/transit/reconciliation";
 import { bindTransitRoute } from "@/map/transit/route-layer";
 import { useTransitStore } from "@/map/transit/store";
+import { VEHICLE_MODEL_MIN_ZOOM } from "@/map/transit/vehicle-model-config";
+import type { VehicleModelsController } from "@/map/transit/vehicle-model-layer";
+import { createBuildingFocus, isXrayVehicle } from "@/map/transit/xray";
 
 export const TRANSIT_SOURCE_ID = "live-transit";
 export const TRANSIT_BODY_LAYER_ID = "live-transit-bodies";
 export const TRANSIT_POINT_SOURCE_ID = "live-transit-points";
 export const TRANSIT_POINT_LAYER_ID = "live-transit-overview";
+export const TRANSIT_MODEL_HIT_LAYER_ID = "live-transit-model-hits";
 const SELECTION_LAYER_ID = "live-transit-selection";
 const LABEL_LAYER_ID = "live-transit-labels";
+const XRAY_GLOW_LAYER_ID = "live-transit-xray-glow";
+const XRAY_HALO_LAYER_ID = "live-transit-xray-halo";
+const XRAY_MARKER_LAYER_ID = "live-transit-xray-markers";
 const INTERACTIVE_LAYERS = [
   TRANSIT_BODY_LAYER_ID,
+  TRANSIT_MODEL_HIT_LAYER_ID,
   TRANSIT_POINT_LAYER_ID,
   SELECTION_LAYER_ID,
   LABEL_LAYER_ID,
+  XRAY_MARKER_LAYER_ID,
+  XRAY_HALO_LAYER_ID,
+];
+const VEHICLE_LAYERS = [...INTERACTIVE_LAYERS, XRAY_GLOW_LAYER_ID];
+const XRAY_RADIUS: ExpressionSpecification = [
+  "interpolate",
+  ["linear"],
+  ["zoom"],
+  11,
+  3,
+  14,
+  5,
+  16,
+  7,
 ];
 const FRAME_INTERVAL = 1000 / 20;
 const CORRECTION_DURATION_MS = 2000;
@@ -52,6 +75,8 @@ interface VehicleProperties {
   label: string;
   selected: boolean;
   headingKnown: boolean;
+  xray: boolean;
+  modelLoaded: boolean;
 }
 
 interface RenderVehicle {
@@ -91,6 +116,8 @@ function makeRenderVehicle(vehicle: TransitVehicle): RenderVehicle {
     label: displayTransitLine(vehicle),
     selected: false,
     headingKnown: hasHeading,
+    xray: isXrayVehicle(vehicle),
+    modelLoaded: false,
   };
   return {
     vehicle,
@@ -140,9 +167,9 @@ function hasForecastHeading(vehicle: TransitVehicle): boolean {
 function placeFootprint(
   render: RenderVehicle,
   center: LngLat,
-  bearing: number
+  bearing: number,
+  size = VEHICLE_SIZE[render.vehicle.product]
 ): void {
-  const size = VEHICLE_SIZE[render.vehicle.product];
   const angle = (bearing * Math.PI) / 180;
   const sin = Math.sin(angle);
   const cos = Math.cos(angle);
@@ -179,6 +206,7 @@ function refreshRenderVehicle(
   render.feature.properties.color = PRODUCT_COLORS[vehicle.product];
   render.feature.properties.label = displayTransitLine(vehicle);
   render.feature.properties.height = VEHICLE_SIZE[vehicle.product].height;
+  render.feature.properties.xray = isXrayVehicle(vehicle);
   return render;
 }
 
@@ -211,7 +239,12 @@ function installLayers(
       id: TRANSIT_BODY_LAYER_ID,
       type: "fill-extrusion",
       source: TRANSIT_SOURCE_ID,
-      filter: ["==", ["get", "headingKnown"], true],
+      filter: [
+        "all",
+        ["==", ["get", "headingKnown"], true],
+        ["!", ["get", "xray"]],
+        ["!=", ["get", "modelLoaded"], true],
+      ],
       paint: {
         "fill-extrusion-color": ["get", "color"],
         "fill-extrusion-height": ["get", "height"],
@@ -220,12 +253,24 @@ function installLayers(
       },
     });
   }
+  if (!map.getLayer(TRANSIT_MODEL_HIT_LAYER_ID)) {
+    // Custom GL meshes are not queryable as style features. Their actual-sized
+    // invisible footprints preserve selection/hover without drawing a box.
+    map.addLayer({
+      id: TRANSIT_MODEL_HIT_LAYER_ID,
+      type: "fill",
+      source: TRANSIT_SOURCE_ID,
+      filter: ["==", ["get", "modelLoaded"], true],
+      paint: { "fill-opacity": 0 },
+    });
+  }
   if (!map.getLayer(TRANSIT_POINT_LAYER_ID)) {
     map.addLayer({
       id: TRANSIT_POINT_LAYER_ID,
       type: "circle",
       source: TRANSIT_POINT_SOURCE_ID,
       minzoom: 0,
+      filter: ["!", ["get", "xray"]],
       paint: {
         "circle-color": ["get", "color"],
         "circle-radius": [
@@ -266,6 +311,55 @@ function installLayers(
       },
     });
   }
+  if (!map.getLayer(XRAY_GLOW_LAYER_ID)) {
+    map.addLayer({
+      id: XRAY_GLOW_LAYER_ID,
+      type: "circle",
+      source: TRANSIT_POINT_SOURCE_ID,
+      filter: ["get", "xray"],
+      paint: {
+        "circle-color": ["get", "color"],
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 11, 9, 16, 17],
+        "circle-blur": 0.8,
+        "circle-opacity": 0.3,
+        "circle-pitch-alignment": "viewport",
+        "circle-pitch-scale": "viewport",
+      },
+    });
+  }
+  if (!map.getLayer(XRAY_HALO_LAYER_ID)) {
+    map.addLayer({
+      id: XRAY_HALO_LAYER_ID,
+      type: "circle",
+      source: TRANSIT_POINT_SOURCE_ID,
+      filter: ["get", "xray"],
+      paint: {
+        "circle-radius": XRAY_RADIUS,
+        "circle-opacity": 0,
+        "circle-stroke-color": "#ffffff",
+        "circle-stroke-width": 4,
+        "circle-stroke-opacity": 0.85,
+        "circle-pitch-alignment": "viewport",
+        "circle-pitch-scale": "viewport",
+      },
+    });
+  }
+  if (!map.getLayer(XRAY_MARKER_LAYER_ID)) {
+    map.addLayer({
+      id: XRAY_MARKER_LAYER_ID,
+      type: "circle",
+      source: TRANSIT_POINT_SOURCE_ID,
+      filter: ["get", "xray"],
+      paint: {
+        "circle-radius": XRAY_RADIUS,
+        "circle-opacity": 0,
+        "circle-stroke-color": ["get", "color"],
+        "circle-stroke-width": 2.5,
+        "circle-pitch-alignment": "viewport",
+        "circle-pitch-scale": "viewport",
+      },
+    });
+  }
   if (!map.getLayer(SELECTION_LAYER_ID)) {
     map.addLayer({
       id: SELECTION_LAYER_ID,
@@ -275,7 +369,7 @@ function installLayers(
       paint: {
         "circle-color": ["get", "color"],
         "circle-opacity": 0.18,
-        "circle-radius": 9,
+        "circle-radius": ["case", ["get", "xray"], 14, 9],
         "circle-stroke-color": ["get", "color"],
         "circle-stroke-width": 2.5,
         "circle-pitch-alignment": "viewport",
@@ -287,10 +381,15 @@ function installLayers(
     map.addLayer({
       id: LABEL_LAYER_ID,
       type: "symbol",
-      source: TRANSIT_SOURCE_ID,
+      source: TRANSIT_POINT_SOURCE_ID,
       minzoom: 14,
       layout: {
-        "text-field": ["get", "label"],
+        "text-field": [
+          "case",
+          ["all", ["get", "xray"], ["get", "selected"]],
+          ["concat", ["get", "label"], " · X-ray"],
+          ["get", "label"],
+        ],
         "text-font": ["Noto Sans Bold"],
         "text-size": 11,
         "text-offset": [0, -1.3],
@@ -344,8 +443,9 @@ function updateVisibleVehicles(
   state: TransitState,
   data: FeatureCollection<Polygon, VehicleProperties>,
   points: FeatureCollection<Point, VehicleProperties>,
-  time: number
-): void {
+  time: number,
+  models: VehicleModelsController | null
+): LngLat | null {
   const bounds = map.getBounds();
   const west = bounds.getWest() - 0.002;
   const east = bounds.getEast() + 0.002;
@@ -354,6 +454,8 @@ function updateVisibleVehicles(
   const now = Date.now();
   data.features.length = 0;
   points.features.length = 0;
+  let focus: LngLat | null = null;
+  models?.beginFrame(map.getZoom());
   for (const render of renderVehicles) {
     const { id } = render.vehicle;
     if (
@@ -380,17 +482,39 @@ function updateVisibleVehicles(
     ) {
       continue;
     }
-    updateVehicleBearing(render, pose, state, time);
-    placeFootprint(render, pose.coordinates, render.drawnBearing);
+    const selected = id === state.selectedId || id === state.followedId;
+    render.feature.properties.modelLoaded = false;
+    if (!render.feature.properties.xray) {
+      updateVehicleBearing(render, pose, state, time);
+      const model = render.headingTrusted
+        ? models?.draw(
+            render.vehicle,
+            pose.coordinates,
+            render.drawnBearing,
+            selected
+          )
+        : null;
+      render.feature.properties.modelLoaded = Boolean(model);
+      placeFootprint(
+        render,
+        pose.coordinates,
+        render.drawnBearing,
+        model?.dimensions
+      );
+      data.features.push(render.feature);
+    }
     const [longitude, latitude] = pose.coordinates;
     render.point.geometry.coordinates[0] = longitude;
     render.point.geometry.coordinates[1] = latitude;
-    render.feature.properties.selected =
-      id === state.selectedId || id === state.followedId;
+    render.feature.properties.selected = selected;
     render.drawnAt = time;
-    data.features.push(render.feature);
     points.features.push(render.point);
+    if (id === state.followedId && render.feature.properties.xray) {
+      focus = pose.coordinates;
+    }
   }
+  models?.endFrame();
+  return focus;
 }
 
 function bindVehicleInteraction(
@@ -435,11 +559,18 @@ export function useTransitLayer(map: MapLibreMap | null, ready: boolean): void {
     let dirty = true;
     let wasVisible = false;
     let removed = false;
+    let disposed = false;
+    let models: VehicleModelsController | null = null;
+    let modelsLoading = false;
+    let modelsUnavailable = false;
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
     const unbindRoute = bindTransitRoute(map);
+    const buildingFocus = createBuildingFocus(map);
 
     const restore = () => {
+      buildingFocus.clear();
       installLayers(map, data, points);
+      models?.restore();
       dirty = true;
     };
     // `ready` means the initial load event already fired. Camera tile requests
@@ -480,6 +611,32 @@ export function useTransitLayer(map: MapLibreMap | null, ready: boolean): void {
     document.addEventListener("visibilitychange", invalidate);
     const unsubscribe = useTransitStore.subscribe(invalidate);
 
+    const requestModels = async () => {
+      if (
+        models ||
+        modelsLoading ||
+        modelsUnavailable ||
+        disposed ||
+        removed ||
+        map.getZoom() < VEHICLE_MODEL_MIN_ZOOM
+      ) {
+        return;
+      }
+      modelsLoading = true;
+      try {
+        const { createVehicleModels } =
+          await import("@/map/transit/vehicle-model-layer");
+        if (!(disposed || removed)) {
+          models = createVehicleModels(map, invalidate);
+          dirty = true;
+        }
+      } catch {
+        modelsUnavailable = true;
+      } finally {
+        modelsLoading = false;
+      }
+    };
+
     const animate = (time: number) => {
       if (removed) {
         return;
@@ -514,9 +671,12 @@ export function useTransitLayer(map: MapLibreMap | null, ready: boolean): void {
         lastVehicles = vehicles;
       }
       if (!state.enabled) {
+        buildingFocus.clear();
         if (dirty || wasVisible) {
           data.features.length = 0;
           points.features.length = 0;
+          models?.beginFrame(0);
+          models?.endFrame();
           source.setData(data);
           pointSource.setData(points);
           wasVisible = false;
@@ -525,17 +685,28 @@ export function useTransitLayer(map: MapLibreMap | null, ready: boolean): void {
         return;
       }
 
-      updateVisibleVehicles(map, renderVehicles, state, data, points, time);
-      if (dirty || data.features.length > 0 || wasVisible) {
+      void requestModels();
+      const focus = updateVisibleVehicles(
+        map,
+        renderVehicles,
+        state,
+        data,
+        points,
+        time,
+        models
+      );
+      buildingFocus.update(focus, time);
+      if (dirty || points.features.length > 0 || wasVisible) {
         source.setData(data);
         pointSource.setData(points);
-        wasVisible = data.features.length > 0;
+        wasVisible = points.features.length > 0;
       }
       dirty = false;
     };
     animationFrame = requestAnimationFrame(animate);
 
     return () => {
+      disposed = true;
       cancelAnimationFrame(animationFrame);
       unsubscribe();
       unbindRoute();
@@ -544,10 +715,12 @@ export function useTransitLayer(map: MapLibreMap | null, ready: boolean): void {
       unbindVehicles();
       map.off("moveend", invalidate);
       document.removeEventListener("visibilitychange", invalidate);
+      models?.dispose();
       if (removed) {
         return;
       }
-      for (const layer of INTERACTIVE_LAYERS) {
+      buildingFocus.clear();
+      for (const layer of VEHICLE_LAYERS) {
         if (map.getLayer(layer)) {
           map.removeLayer(layer);
         }

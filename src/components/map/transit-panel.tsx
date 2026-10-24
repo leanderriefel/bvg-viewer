@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BERLIN_TIMEZONE } from "@/lib/geo";
 import { cn } from "@/lib/utils";
 import { useMapApi } from "@/map/map-context";
@@ -14,7 +16,7 @@ import type { TransitSnapshot } from "@/map/transit/model";
 import { summarizeTransit } from "@/map/transit/network";
 import { useTransitStore } from "@/map/transit/store";
 
-import { CloseIcon, LayersIcon, PlusIcon } from "./icons";
+import { CloseIcon, NavigateIcon, PlusIcon } from "./icons";
 import { TransitLineBrowser } from "./transit-line-browser";
 import { TransitVehicleCard } from "./transit-vehicle-card";
 
@@ -48,7 +50,7 @@ function connectionLabel(
   };
 }
 
-function NetworkStats({ now }: { now: number }) {
+function NetworkOverview({ now }: { now: number }) {
   const snapshot = useTransitStore((state) => state.snapshot);
   const summary = useMemo(
     () => summarizeTransit(snapshot?.vehicles ?? [], now),
@@ -57,19 +59,51 @@ function NetworkStats({ now }: { now: number }) {
   const stats = [
     { label: "Vehicles", value: summary.vehicleCount },
     { label: "Active lines", value: summary.lineCount },
-    { label: "≥1 min late", value: summary.delayedCount },
+    { label: "Late ≥1 min", value: summary.delayedCount },
   ];
   return (
-    <dl className="grid grid-cols-3 gap-2 px-5 pt-1 pb-4">
-      {stats.map((stat) => (
-        <div key={stat.label}>
-          <dd className="text-[25px] leading-tight font-semibold tracking-tight tabular-nums">
-            {NUMBER.format(stat.value)}
-          </dd>
-          <dt className="text-muted-foreground mt-1 text-xs">{stat.label}</dt>
-        </div>
-      ))}
-    </dl>
+    <section aria-label="Network overview">
+      <dl className="grid grid-cols-3 gap-3 border-b px-5 pt-4 pb-5">
+        {stats.map((stat) => (
+          <div key={stat.label}>
+            <dd className="text-[22px] leading-tight font-semibold tracking-tight tabular-nums">
+              {NUMBER.format(stat.value)}
+            </dd>
+            <dt className="text-muted-foreground mt-1 text-xs">{stat.label}</dt>
+          </div>
+        ))}
+      </dl>
+      <div className="px-5 py-4">
+        <h3 className="mb-2 text-xs font-semibold">By transport mode</h3>
+        <dl className="divide-y">
+          {TRANSIT_PRODUCTS.map(
+            (product) =>
+              summary.byProduct[product] > 0 && (
+                <div
+                  className="flex items-center gap-2.5 py-2.5 text-xs"
+                  key={product}
+                >
+                  <span
+                    aria-hidden="true"
+                    className="size-2 rounded-full"
+                    style={{ backgroundColor: PRODUCT_COLORS[product] }}
+                  />
+                  <dt className="text-muted-foreground flex-1">
+                    {PRODUCT_LABELS[product]}
+                  </dt>
+                  <dd className="font-medium tabular-nums">
+                    {NUMBER.format(summary.byProduct[product])}
+                  </dd>
+                </div>
+              )
+          )}
+        </dl>
+        <p className="text-muted-foreground mt-3 text-xs leading-relaxed">
+          Figures cover the current feed across Berlin. Open a line to explore
+          its vehicles and directions.
+        </p>
+      </div>
+    </section>
   );
 }
 
@@ -82,41 +116,51 @@ function ModeFilters({ now }: { now: number }) {
     [snapshot, now]
   );
   return (
-    <fieldset className="border-t px-4 py-3">
-      <legend className="sr-only">Transport visible on the map</legend>
-      <div className="flex flex-wrap gap-1.5">
-        {TRANSIT_PRODUCTS.map((product) => {
-          if (product === "unknown" && counts.unknown === 0) {
-            return null;
-          }
-          return (
-            <button
-              aria-label={`Show ${PRODUCT_LABELS[product]}`}
-              aria-pressed={filters[product]}
-              className={cn(
-                "focus-visible:outline-ring inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2",
-                filters[product]
-                  ? "border-border/80 bg-background text-foreground shadow-xs"
-                  : "bg-muted/40 text-muted-foreground border-transparent opacity-60"
-              )}
-              key={product}
-              onClick={() => toggleProduct(product)}
-              type="button"
-            >
-              <span
-                aria-hidden="true"
-                className="size-1.5 rounded-full"
-                style={{ backgroundColor: PRODUCT_COLORS[product] }}
-              />
-              {PRODUCT_LABELS[product]}
-              <span className="text-muted-foreground text-xs tabular-nums">
-                {NUMBER.format(counts[product])}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-    </fieldset>
+    <details className="group border-b px-4 py-2">
+      <summary className="focus-visible:outline-ring flex min-h-9 cursor-pointer list-none items-center gap-2 rounded-sm text-xs focus-visible:outline-2 [&::-webkit-details-marker]:hidden">
+        <span className="flex-1 font-medium">Transport modes</span>
+        <span className="text-muted-foreground">Filter map & lines</span>
+        <PlusIcon
+          className="text-muted-foreground transition-transform group-open:rotate-45"
+          size={13}
+        />
+      </summary>
+      <fieldset className="pb-2">
+        <legend className="sr-only">Transport visible on the map</legend>
+        <div className="grid grid-cols-2 gap-2 pt-2">
+          {TRANSIT_PRODUCTS.map((product) => {
+            if (product === "unknown" && counts.unknown === 0) {
+              return null;
+            }
+            return (
+              <button
+                aria-label={`Include ${PRODUCT_LABELS[product]}`}
+                aria-pressed={filters[product]}
+                className={cn(
+                  "focus-visible:outline-ring inline-flex min-h-10 items-center gap-2 rounded-xl border px-2.5 py-2 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2",
+                  filters[product]
+                    ? "border-border/80 bg-background text-foreground shadow-xs"
+                    : "bg-muted/40 text-muted-foreground border-transparent"
+                )}
+                key={product}
+                onClick={() => toggleProduct(product)}
+                type="button"
+              >
+                <span
+                  aria-hidden="true"
+                  className="size-1.5 rounded-full"
+                  style={{ backgroundColor: PRODUCT_COLORS[product] }}
+                />
+                {PRODUCT_LABELS[product]}
+                <span className="text-muted-foreground ml-auto text-xs tabular-nums">
+                  {NUMBER.format(counts[product])}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </fieldset>
+    </details>
   );
 }
 
@@ -147,8 +191,8 @@ function FeedDetails({
       </summary>
       <div className="space-y-2 pt-3 leading-relaxed">
         <p>
-          Positions follow VBB movement estimates. Underground services appear
-          at the surface.
+          Positions follow VBB movement estimates. U-Bahn uses outlined X-ray
+          markers and dashed routes, including on above-ground sections.
         </p>
         <p>
           Delay figures cover vehicles with reported data; an unknown delay is
@@ -187,7 +231,7 @@ function FeedDetails({
 /** Browse the live network by line, then direction, then individual vehicle. */
 export function TransitPanel() {
   const { tour } = useMapApi();
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
   const [lineKey, setLineKey] = useState<string | null>(null);
   const [now, setNow] = useState(0);
   const snapshot = useTransitStore((state) => state.snapshot);
@@ -222,65 +266,39 @@ export function TransitPanel() {
   return (
     <aside
       aria-label="Live public transport"
-      className="border-border/80 bg-card/95 pointer-events-auto w-[min(23rem,calc(100vw-1.5rem))] overflow-hidden rounded-[24px] border shadow-[0_8px_40px_-12px_rgb(0_0_0/25%)] backdrop-blur-xl"
+      className="map-transit map-panel pointer-events-auto flex flex-col overflow-hidden"
+      data-expanded={open}
     >
-      <div className="flex items-start gap-3 px-4 pt-4 pb-3">
-        <button
-          aria-controls="transit-panel-details"
-          aria-expanded={open}
-          aria-label="Toggle public transport details"
-          className="focus-visible:outline-ring flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left focus-visible:outline-2"
-          onClick={toggleExpanded}
-          type="button"
-        >
-          <span className="bg-background flex size-10 shrink-0 items-center justify-center rounded-2xl border shadow-xs">
-            <LayersIcon size={18} />
+      <button
+        aria-controls="transit-panel-details"
+        aria-expanded={open}
+        aria-label="Toggle public transport details"
+        className="hover:bg-muted/50 focus-visible:outline-ring flex w-full shrink-0 items-center gap-2.5 rounded-2xl p-3 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-3px]"
+        onClick={toggleExpanded}
+        type="button"
+      >
+        <span className="bg-muted flex size-8 shrink-0 items-center justify-center rounded-lg">
+          <NavigateIcon size={16} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-[13px] font-semibold tracking-tight">
+            Live transport
           </span>
-          <span className="min-w-0">
-            <span className="block text-sm font-semibold tracking-tight">
-              Berlin in motion
-            </span>
-            <span className="text-muted-foreground mt-1 flex items-center gap-1.5 text-xs">
-              <span
-                aria-hidden="true"
-                className={cn("size-1.5 rounded-full", connectionTone)}
-              />
-              {enabled ? connection.text : "Transport hidden"}
-            </span>
+          <span className="text-muted-foreground mt-0.5 flex items-center gap-1.5 text-xs">
+            <span
+              aria-hidden="true"
+              className={cn("size-1.5 rounded-full", connectionTone)}
+            />
+            {enabled ? connection.text : "Transport hidden"}
           </span>
-        </button>
-        <Button
-          aria-label={
-            enabled ? "Hide transport on map" : "Show transport on map"
-          }
-          aria-pressed={enabled}
-          className="h-7 rounded-full px-2.5 text-xs"
-          onClick={() => setEnabled(!enabled)}
-          size="sm"
-          variant="outline"
-        >
-          {enabled ? "Visible" : "Hidden"}
-        </Button>
-        <Button
-          aria-label={
-            open ? "Collapse transport panel" : "Expand transport panel"
-          }
-          className="text-muted-foreground size-7 rounded-full"
-          onClick={toggleExpanded}
-          size="icon"
-          variant="ghost"
-        >
+        </span>
+        <span className="text-muted-foreground flex size-7 items-center justify-center rounded-full border">
           {open ? <CloseIcon size={14} /> : <PlusIcon size={14} />}
-        </Button>
-      </div>
-      {!open && (
-        <div className="text-muted-foreground px-5 pb-3 text-xs">
-          Explore active lines, vehicles and delays
-        </div>
-      )}
+        </span>
+      </button>
       {open && (
         <div
-          className="max-h-[min(72dvh,44rem)] overflow-y-auto overscroll-contain"
+          className="min-h-0 overflow-y-auto overscroll-contain"
           id="transit-panel-details"
         >
           {vehicle ? (
@@ -290,24 +308,47 @@ export function TransitPanel() {
               vehicle={vehicle}
             />
           ) : (
-            <>
-              {!lineKey && (
-                <>
-                  <NetworkStats now={now} />
-                  <ModeFilters now={now} />
-                </>
-              )}
-              {selectedId && (
-                <p className="text-muted-foreground px-4 pb-2 text-xs">
-                  That vehicle has left the current feed.
-                </p>
-              )}
-              <TransitLineBrowser
-                lineKey={lineKey}
-                now={now}
-                onLineChange={setLineKey}
-              />
-            </>
+            <Tabs className="gap-0" defaultValue="lines">
+              <div className="flex items-center gap-4 border-b px-4 pb-3">
+                <TabsList
+                  aria-label="Transport information"
+                  className="h-9 flex-1 rounded-xl"
+                >
+                  <TabsTrigger className="rounded-lg" value="lines">
+                    Lines
+                  </TabsTrigger>
+                  <TabsTrigger className="rounded-lg" value="overview">
+                    Overview
+                  </TabsTrigger>
+                </TabsList>
+              </div>
+              <div className="flex items-center justify-between border-b px-4 py-3">
+                <Label className="text-xs" htmlFor="transit-map-visible">
+                  Show on map
+                </Label>
+                <Switch
+                  checked={enabled}
+                  id="transit-map-visible"
+                  onCheckedChange={setEnabled}
+                />
+              </div>
+              <TabsContent className="mt-0" value="lines">
+                <ModeFilters now={now} />
+                {selectedId && (
+                  <p className="text-muted-foreground px-4 pb-2 text-xs">
+                    That vehicle has left the current feed.
+                  </p>
+                )}
+                <TransitLineBrowser
+                  lineKey={lineKey}
+                  now={now}
+                  onLineChange={setLineKey}
+                />
+              </TabsContent>
+              <TabsContent className="mt-0" value="overview">
+                <NetworkOverview now={now} />
+              </TabsContent>
+            </Tabs>
           )}
           <FeedDetails error={error} snapshot={snapshot} />
         </div>

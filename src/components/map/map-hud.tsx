@@ -1,16 +1,19 @@
 import { Button } from "@/components/ui/button";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
 import { useMapApi } from "@/map/map-context";
 import { useMapStore } from "@/map/store";
 
-import { CompassIcon, MinusIcon, PlusIcon } from "./icons";
+import { CompassIcon, InfoIcon, MinusIcon, PlusIcon } from "./icons";
 
-/** Zoom buttons and a compass that doubles as "reset the camera to north". */
 export function MapControls() {
   const { map, resetNorth } = useMapApi();
   const bearing = useMapStore((s) => s.camera.bearing);
@@ -18,113 +21,119 @@ export function MapControls() {
   const view = useMapStore((s) => s.view);
 
   return (
-    <div className="pointer-events-auto flex flex-col items-center gap-2">
+    <fieldset
+      aria-label="Map navigation"
+      className="map-panel pointer-events-auto flex flex-col items-center overflow-hidden rounded-xl p-0.5"
+    >
       {view === "perspective" && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              aria-label="Reset bearing to north"
-              className="bg-card/80 size-10 rounded-xl shadow-sm backdrop-blur-md"
-              onClick={resetNorth}
-              size="icon"
-              variant="outline"
-            >
-              <span
-                className="block"
-                style={{ transform: `rotate(${-bearing}deg)` }}
+        <>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                aria-label="Reset bearing to north"
+                className="size-9 rounded-lg"
+                onClick={resetNorth}
+                size="icon"
+                variant="ghost"
               >
-                <CompassIcon size={18} />
-              </span>
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="left">
-            {Math.round(bearing)}° · pitch {Math.round(pitch)}°
-          </TooltipContent>
-        </Tooltip>
+                <span
+                  className="block"
+                  style={{ transform: `rotate(${-bearing}deg)` }}
+                >
+                  <CompassIcon size={16} />
+                </span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="left">
+              Face north · {Math.round(bearing)}° bearing · {Math.round(pitch)}°
+              tilt
+            </TooltipContent>
+          </Tooltip>
+          <span className="bg-border my-0.5 h-px w-5" />
+        </>
       )}
-
-      <div className="bg-card/80 flex flex-col overflow-hidden rounded-xl border shadow-sm backdrop-blur-md">
-        <Button
-          aria-label="Zoom in"
-          className="size-10 rounded-none border-0"
-          onClick={() => map?.zoomIn()}
-          size="icon"
-          variant="ghost"
-        >
-          <PlusIcon size={16} />
-        </Button>
-        <div className="bg-border h-px" />
-        <Button
-          aria-label="Zoom out"
-          className="size-10 rounded-none border-0"
-          onClick={() => map?.zoomOut()}
-          size="icon"
-          variant="ghost"
-        >
-          <MinusIcon size={16} />
-        </Button>
-      </div>
-    </div>
+      <Button
+        aria-label="Zoom in"
+        className="size-9 rounded-lg"
+        onClick={() => map?.zoomIn()}
+        size="icon"
+        variant="ghost"
+      >
+        <PlusIcon size={16} />
+      </Button>
+      <Button
+        aria-label="Zoom out"
+        className="size-9 rounded-lg"
+        onClick={() => map?.zoomOut()}
+        size="icon"
+        variant="ghost"
+      >
+        <MinusIcon size={16} />
+      </Button>
+    </fieldset>
   );
 }
 
-const SOURCE_LABEL: Record<string, string> = {
-  local: "Local extract",
-  openfreemap: "OpenFreeMap",
-};
+function MapDiagnostics() {
+  const fps = useMapStore((s) => s.fps);
+  const camera = useMapStore((s) => s.camera);
+  const tileSource = useMapStore((s) => s.tileSource);
+  const loadedTiles = useMapStore((s) => s.loadedTiles);
+  const source =
+    tileSource === "local" ? "Local Berlin extract" : "OpenFreeMap";
+  const stats = [
+    ["Frame rate", fps === 0 ? "Idle" : `${fps} fps`],
+    ["Zoom", camera.zoom.toFixed(2)],
+    [
+      "Bearing / tilt",
+      `${Math.round(camera.bearing)}° / ${Math.round(camera.pitch)}°`,
+    ],
+    ["Latitude", camera.center[1].toFixed(5)],
+    ["Longitude", camera.center[0].toFixed(5)],
+    ["Loaded tiles", String(loadedTiles)],
+    ["Map source", tileSource ? source : "Connecting…"],
+  ];
 
-/**
- * Small status strip. The frame rate is here because "is this smooth?" is the
- * whole point of the project, and a number settles the argument.
- */
-/** Green when comfortably smooth, amber when noticeable, red when not. */
-function toneForFps(fps: number): string {
-  if (fps === 0) {
-    return "text-muted-foreground";
-  }
-  if (fps >= 50) {
-    return "text-emerald-500";
-  }
-  if (fps >= 30) {
-    return "text-amber-500";
-  }
-  return "text-red-500";
+  return (
+    <>
+      <div>
+        <h2 className="text-sm font-semibold">Map details</h2>
+        <p className="text-muted-foreground mt-1 text-xs">
+          Your current view and map performance.
+        </p>
+      </div>
+      <dl className="mt-2 divide-y text-xs">
+        {stats.map(([label, value]) => (
+          <div className="flex justify-between gap-4 py-2.5" key={label}>
+            <dt className="text-muted-foreground">{label}</dt>
+            <dd className="font-medium tabular-nums">{value}</dd>
+          </div>
+        ))}
+      </dl>
+    </>
+  );
 }
 
 export function StatsHud() {
-  const fps = useMapStore((s) => s.fps);
-  const zoom = useMapStore((s) => s.camera.zoom);
-  const center = useMapStore((s) => s.camera.center);
-  const tileSource = useMapStore((s) => s.tileSource);
-  const loadedTiles = useMapStore((s) => s.loadedTiles);
-
-  const fpsTone = toneForFps(fps);
-
   return (
-    <div className="bg-card/80 pointer-events-auto hidden items-center gap-3 rounded-xl border px-3 py-1.5 font-mono text-xs shadow-sm backdrop-blur-md md:flex">
-      <span className={cn("tabular-nums", fpsTone)}>
-        {fps === 0 ? "idle" : `${fps} fps`}
-      </span>
-      <span className="bg-border h-3 w-px" />
-      <span className="text-muted-foreground tabular-nums">
-        z{zoom.toFixed(1)}
-      </span>
-      <span className="bg-border h-3 w-px" />
-      <span className="text-muted-foreground tabular-nums">
-        {center[1].toFixed(4)}, {center[0].toFixed(4)}
-      </span>
-      <span className="bg-border h-3 w-px" />
-      <span className="text-muted-foreground">
-        {tileSource ? SOURCE_LABEL[tileSource] : "connecting…"}
-      </span>
-      {loadedTiles > 0 && (
-        <>
-          <span className="bg-border h-3 w-px" />
-          <span className="text-muted-foreground tabular-nums">
-            {loadedTiles} tiles
-          </span>
-        </>
-      )}
-    </div>
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          className="map-panel text-muted-foreground h-8 gap-1.5 rounded-full px-2.5 text-xs"
+          variant="ghost"
+        >
+          <InfoIcon size={14} />
+          Map details
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        className="w-72 max-w-[calc(100vw-2rem)] gap-0 rounded-2xl p-4"
+        side="top"
+        sideOffset={10}
+      >
+        <MapDiagnostics />
+      </PopoverContent>
+    </Popover>
   );
 }

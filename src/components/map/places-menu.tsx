@@ -65,24 +65,26 @@ export function PlacesMenu() {
     <Sheet onOpenChange={setOpen} open={open}>
       <SheetTrigger asChild>
         <Button
-          className="bg-card/80 h-10 gap-2 rounded-xl shadow-sm backdrop-blur-md"
-          variant="outline"
+          aria-label="Discover places in Berlin"
+          className="text-muted-foreground hover:text-foreground h-8 gap-1.5 rounded-lg px-2 text-xs"
+          variant="ghost"
         >
-          <PinIcon size={16} />
-          <span className="hidden sm:inline">Places</span>
+          <PinIcon size={14} />
+          Places
         </Button>
       </SheetTrigger>
 
       <SheetContent
-        className="flex w-full flex-col gap-0 p-0 sm:max-w-md"
+        className="flex w-full flex-col gap-0 p-0 sm:max-w-sm"
         side="left"
       >
-        <SheetHeader className="gap-1 border-b px-5 pt-5 pb-4">
-          <SheetTitle className="font-heading text-xl">
-            Places in Berlin
+        <SheetHeader className="gap-1 border-b px-5 pt-7 pb-5">
+          <SheetTitle className="font-sans text-xl font-semibold tracking-tight">
+            Discover Berlin
           </SheetTitle>
           <SheetDescription>
-            {LANDMARKS.length} spots, each with its own camera angle.
+            Landmarks, neighbourhoods and quiet corners. Pick a place to
+            explore.
           </SheetDescription>
 
           <div className="relative mt-3">
@@ -91,7 +93,8 @@ export function PlacesMenu() {
               size={15}
             />
             <Input
-              className="pl-9"
+              aria-label="Filter places"
+              className="bg-muted/50 h-11 rounded-xl pl-9 shadow-none"
               onChange={(e) => setFilter(e.target.value)}
               placeholder="Filter places…"
               value={filter}
@@ -109,18 +112,18 @@ export function PlacesMenu() {
 
             {[...grouped].map(([cat, items]) => (
               <section className="mb-4" key={cat}>
-                <h3 className="text-muted-foreground px-2 pb-1.5 text-xs font-medium tracking-wider uppercase">
+                <h3 className="text-muted-foreground px-2 pt-2 pb-2 text-[11px] font-medium tracking-wider uppercase">
                   {LANDMARK_CATEGORY_LABEL[cat]}
                 </h3>
                 <ul>
                   {items.map((l) => (
                     <li key={l.id}>
                       <button
-                        className="hover:bg-accent focus-visible:bg-accent flex w-full items-start gap-3 rounded-lg px-2 py-2 text-left transition-colors focus-visible:outline-none"
+                        className="hover:bg-accent focus-visible:bg-accent flex w-full items-center gap-3 rounded-xl px-2 py-3 text-left transition-colors focus-visible:outline-none"
                         onClick={() => go(l)}
                         type="button"
                       >
-                        <span className="bg-muted text-muted-foreground mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md">
+                        <span className="bg-muted text-muted-foreground flex size-9 shrink-0 items-center justify-center rounded-xl">
                           <CategoryIcon category={l.category} size={15} />
                         </span>
                         <span className="min-w-0 flex-1">

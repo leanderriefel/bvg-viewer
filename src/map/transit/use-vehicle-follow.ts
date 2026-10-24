@@ -2,6 +2,7 @@ import type { Map as MapLibreMap, MapMovementEvent } from "maplibre-gl";
 import { useEffect } from "react";
 
 import { haversine } from "@/lib/geo";
+import { createResizeMovementGuard } from "@/map/camera-movement";
 import { sampleVehicle } from "@/map/transit/motion";
 import type { TransitPose } from "@/map/transit/motion";
 import { useTransitStore } from "@/map/transit/store";
@@ -22,7 +23,11 @@ export function startVehicleFollow(map: MapLibreMap): () => void {
   let following: string | null = null;
   let removed = false;
 
+  const isResizeMovement = createResizeMovementGuard(map);
   const stopForGesture = (event: MapMovementEvent) => {
+    if (isResizeMovement(event)) {
+      return;
+    }
     if ("transitFollowing" in event && event.transitFollowing === true) {
       return;
     }

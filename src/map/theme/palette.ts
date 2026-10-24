@@ -46,7 +46,6 @@ export interface Palette {
   buildingHigh: string;
   /** Applied to the handful of buildings we want to read from far away. */
   buildingLandmark: string;
-  buildingOpacity: number;
 
   motorway: string;
   trunk: string;
@@ -96,7 +95,6 @@ export const DAYLIGHT: Palette = {
   buildingLandmark: "#d8c9a8",
   buildingLow: "#e6e7e9",
   buildingMid: "#dcdee1",
-  buildingOpacity: 1,
   casing: "#cbcfd4",
   cemetery: "#d9e3d2",
   commercial: "#f2ebe4",
@@ -147,7 +145,6 @@ export const MIDNIGHT: Palette = {
   buildingLandmark: "#5c5230",
   buildingLow: "#22262b",
   buildingMid: "#2b3037",
-  buildingOpacity: 1,
   casing: "#0f1214",
   cemetery: "#1b2b25",
   commercial: "#1a1a1e",
@@ -198,7 +195,6 @@ export const VIVID: Palette = {
   buildingLandmark: "#ff4d8d",
   buildingLow: "#2f2d8f",
   buildingMid: "#a02a9c",
-  buildingOpacity: 0.96,
   casing: "#0d0a1a",
   cemetery: "#1c4436",
   commercial: "#251742",
@@ -249,7 +245,6 @@ export const BLUEPRINT: Palette = {
   buildingLandmark: "#5ee0ff",
   buildingLow: "#12496e",
   buildingMid: "#186290",
-  buildingOpacity: 0.92,
   casing: "#071a2e",
   cemetery: "#0d3050",
   commercial: "#0c2c48",
@@ -300,7 +295,6 @@ export const SLATE: Palette = {
   buildingLandmark: "#8f9499",
   buildingLow: "#dcdddf",
   buildingMid: "#c9cbce",
-  buildingOpacity: 1,
   casing: "#c4c6c9",
   cemetery: "#dcdedc",
   commercial: "#e8e8e9",

@@ -1,3 +1,5 @@
+import { useEffect, useRef } from "react";
+
 import { Button } from "@/components/ui/button";
 import { useMapApi } from "@/map/map-context";
 
@@ -7,11 +9,26 @@ export function TourControls() {
   const { tour } = useMapApi();
   const { state, start: handleStart, exit: handleExit } = tour;
 
+  const active = Boolean(state);
+  const wasActive = useRef(false);
+  const startRef = useRef<HTMLButtonElement>(null);
+  const pauseRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    const focusLost = document.activeElement === document.body;
+    if (active && focusLost) {
+      pauseRef.current?.focus();
+    } else if (!active && wasActive.current && focusLost) {
+      startRef.current?.focus();
+    }
+    wasActive.current = active;
+  }, [active]);
+
   if (!state) {
     return (
       <Button
-        className="bg-card/90 pointer-events-auto h-10 gap-2 rounded-xl shadow-sm backdrop-blur-md"
+        className="map-panel pointer-events-auto h-9 gap-2 rounded-xl px-3 text-xs"
         onClick={handleStart}
+        ref={startRef}
         variant="outline"
       >
         <PlayIconC size={16} />
@@ -26,7 +43,7 @@ export function TourControls() {
   return (
     <section
       aria-label="Tour Berlin"
-      className="bg-card/95 pointer-events-auto w-80 max-w-[calc(100vw-5rem)] rounded-2xl border p-4 shadow-lg backdrop-blur-xl"
+      className="map-panel pointer-events-auto max-h-[calc(100dvh-16rem)] w-full overflow-y-auto overscroll-contain p-4"
     >
       <div aria-atomic="true" aria-live="polite">
         <div className="text-muted-foreground flex items-center gap-2 text-xs font-medium">
@@ -56,6 +73,7 @@ export function TourControls() {
           aria-label={paused ? "Resume tour" : "Pause tour"}
           className="h-9 flex-1 gap-2 rounded-lg"
           onClick={paused ? tour.resume : tour.pause}
+          ref={pauseRef}
           size="sm"
           variant="outline"
         >

@@ -1,6 +1,7 @@
 import type { Map as MapLibreMap, MapMovementEvent } from "maplibre-gl";
 
 import { haversine } from "@/lib/geo";
+import { createResizeMovementGuard } from "@/map/camera-movement";
 import { LANDMARKS_BY_ID } from "@/map/landmarks";
 import type { Landmark } from "@/map/landmarks";
 import { useMapStore } from "@/map/store";
@@ -134,6 +135,7 @@ export function createBerlinTour(
   onChange: (state: BerlinTourState | null) => void,
   reducedMotion: boolean
 ): BerlinTourControls & { dispose: () => void } {
+  const isResizeMovement = createResizeMovementGuard(map);
   let status: "idle" | "playing" | "paused" = "idle";
   let scene: Scene | null = null;
   let index = -1;
@@ -293,6 +295,9 @@ export function createBerlinTour(
   }
 
   function onCameraMove(event: MapMovementEvent) {
+    if (isResizeMovement(event)) {
+      return;
+    }
     if (
       status === "idle" ||
       ("berlinTour" in event && event.berlinTour === true) ||
