@@ -15,7 +15,7 @@ import { clearMapCache, formatBytes, getStorageEstimate } from "@/map/offline";
 import type { StorageEstimate } from "@/map/offline";
 import { useMapStore } from "@/map/store";
 
-import { MenuIcon } from "./icons";
+import { InfoIcon } from "./icons";
 
 const SHORTCUTS: [string, string][] = [
   ["⌘K / Ctrl+K", "Search places and addresses"],
@@ -30,6 +30,7 @@ export function SettingsSheet() {
   const [open, setOpen] = useState(false);
   const [storage, setStorage] = useState<StorageEstimate | null>(null);
   const [clearing, setClearing] = useState(false);
+  const [clearError, setClearError] = useState(false);
 
   const tileSource = useMapStore((s) => s.tileSource);
 
@@ -52,9 +53,12 @@ export function SettingsSheet() {
 
   const onClear = async () => {
     setClearing(true);
+    setClearError(false);
     try {
       await clearMapCache();
       await refresh();
+    } catch {
+      setClearError(true);
     } finally {
       setClearing(false);
     }
@@ -64,26 +68,31 @@ export function SettingsSheet() {
     <Sheet onOpenChange={setOpen} open={open}>
       <SheetTrigger asChild>
         <Button
-          aria-label="About and storage"
-          className="bg-card/80 size-10 rounded-xl shadow-sm backdrop-blur-md"
+          aria-label="About this map and storage"
+          className="text-muted-foreground size-7 rounded-lg"
           size="icon"
-          variant="outline"
+          variant="ghost"
         >
-          <MenuIcon size={17} />
+          <InfoIcon size={15} />
         </Button>
       </SheetTrigger>
 
-      <SheetContent className="w-full overflow-y-auto sm:max-w-md" side="right">
-        <SheetHeader className="gap-1">
-          <SheetTitle className="font-heading text-xl">Berlin in 3D</SheetTitle>
+      <SheetContent
+        className="w-full gap-6 overflow-y-auto sm:max-w-sm"
+        side="right"
+      >
+        <SheetHeader className="gap-2 px-5 pt-7">
+          <SheetTitle className="font-sans text-xl font-semibold tracking-tight">
+            About this map
+          </SheetTitle>
           <SheetDescription>
             Every building, park, street and river comes from OpenStreetMap.
           </SheetDescription>
         </SheetHeader>
 
-        <div className="space-y-6 px-4 pb-8">
+        <div className="space-y-6 px-5 pb-8">
           <section>
-            <h3 className="font-heading pb-2 text-sm">Map data</h3>
+            <h3 className="pb-3 text-sm font-semibold">Map data</h3>
             <div className="flex items-center justify-between gap-3 text-sm">
               <span className="text-muted-foreground">Tile source</span>
               <Badge variant={tileSource === "local" ? "default" : "secondary"}>
@@ -92,26 +101,16 @@ export function SettingsSheet() {
                   : "OpenFreeMap (hosted)"}
               </Badge>
             </div>
-            {tileSource !== "local" && (
-              <p className="text-muted-foreground pt-2 text-xs leading-relaxed">
-                Running against the hosted planet. For a much faster map, build
-                the local extract once with{" "}
-                <code className="bg-muted rounded px-1 py-0.5">
-                  vp run tiles:build
-                </code>{" "}
-                — it is picked up automatically on the next reload.
-              </p>
-            )}
           </section>
 
           <Separator />
 
           <section>
-            <h3 className="font-heading pb-2 text-sm">Offline storage</h3>
+            <h3 className="pb-3 text-sm font-semibold">Offline storage</h3>
             {storage ? (
               <>
                 <div className="flex items-baseline justify-between gap-3">
-                  <span className="font-heading text-lg">
+                  <span className="text-2xl font-semibold tracking-tight tabular-nums">
                     {formatBytes(storage.usedBytes)}
                   </span>
                   <span className="text-muted-foreground text-xs">
@@ -143,7 +142,7 @@ export function SettingsSheet() {
             </p>
 
             <Button
-              className="mt-3 w-full"
+              className="mt-3 h-10 w-full rounded-xl"
               disabled={clearing}
               onClick={onClear}
               size="sm"
@@ -151,12 +150,17 @@ export function SettingsSheet() {
             >
               {clearing ? "Clearing…" : "Clear cached map data"}
             </Button>
+            {clearError && (
+              <p className="text-destructive mt-2 text-xs" role="alert">
+                Cached data could not be cleared. Please try again.
+              </p>
+            )}
           </section>
 
           <Separator />
 
           <section>
-            <h3 className="font-heading pb-2 text-sm">Controls</h3>
+            <h3 className="pb-3 text-sm font-semibold">Keyboard & gestures</h3>
             <dl className="space-y-1.5">
               {SHORTCUTS.map(([key, what]) => (
                 <div

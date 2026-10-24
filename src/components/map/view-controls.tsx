@@ -8,29 +8,24 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { useMapStore } from "@/map/store";
 import type { QualityLevel } from "@/map/theme/build-style";
 import { PALETTE_ORDER, PALETTES } from "@/map/theme/palette";
 
-import { CheckIcon, CubeIconC, LayersIcon, MapFlatIcon } from "./icons";
+import { CheckIcon, LayersIcon, PlusIcon } from "./icons";
 
 const QUALITY_COPY: Record<QualityLevel, { label: string; hint: string }> = {
   balanced: {
-    hint: "Capped resolution; the horizon falls back to simple massing blocks. The default.",
+    hint: "A balance of detail and smooth navigation. Recommended for most devices.",
     label: "Balanced",
   },
   performance: {
-    hint: "1x resolution, no antialiasing; detailed buildings only up close, massing blocks beyond. Smoothest on laptops.",
+    hint: "Less detail in the distance for smoother navigation and lower battery use.",
     label: "Performance",
   },
   quality: {
-    hint: "Native resolution with antialiasing. Wants a real GPU.",
+    hint: "Sharper edges and full resolution. Best on a device with a dedicated GPU.",
     label: "Quality",
   },
 };
@@ -41,7 +36,7 @@ function PaletteSwatch({ id }: { id: keyof typeof PALETTES }) {
   const colors = [p.background, p.park, p.water, p.buildingMid, p.buildingHigh];
 
   return (
-    <span className="ring-border flex h-5 w-12 overflow-hidden rounded-[4px] ring-1">
+    <span className="ring-border flex h-8 w-full overflow-hidden rounded-lg ring-1">
       {colors.map((c) => (
         <span className="flex-1" key={c} style={{ backgroundColor: c }} />
       ))}
@@ -63,92 +58,120 @@ export function ViewControls() {
   const setLayerFlag = useMapStore((s) => s.setLayerFlag);
 
   return (
-    <div className="flex items-center gap-2">
-      <Tooltip>
-        <TooltipTrigger asChild>
+    <div className="map-panel flex items-center gap-0.5 rounded-xl p-0.5">
+      <fieldset
+        aria-label="Map view"
+        className="bg-muted/70 flex rounded-lg p-0.5"
+      >
+        {(["flat", "perspective"] as const).map((mode) => (
           <Button
-            aria-label={view === "flat" ? "Switch to 3D" : "Switch to 2D"}
-            className="bg-card/80 size-10 rounded-xl shadow-sm backdrop-blur-md"
-            onClick={() => setView(view === "flat" ? "perspective" : "flat")}
-            size="icon"
-            variant="outline"
-          >
-            {view === "flat" ? (
-              <CubeIconC size={17} />
-            ) : (
-              <MapFlatIcon size={17} />
+            aria-label={mode === "flat" ? "2D map" : "3D map"}
+            aria-pressed={view === mode}
+            className={cn(
+              "text-muted-foreground h-7 rounded-md px-2.5 text-[11px]",
+              view === mode && "bg-background text-foreground shadow-xs"
             )}
+            key={mode}
+            onClick={() => setView(mode)}
+            variant="ghost"
+          >
+            {mode === "flat" ? "2D" : "3D"}
           </Button>
-        </TooltipTrigger>
-        <TooltipContent side="left">
-          {view === "flat" ? "Switch to 3D" : "Switch to flat 2D"}
-        </TooltipContent>
-      </Tooltip>
+        ))}
+      </fieldset>
+
+      <span className="bg-border mx-1 h-4 w-px" />
 
       <Popover>
         <PopoverTrigger asChild>
           <Button
             aria-label="Map style and layers"
-            className="bg-card/80 size-10 rounded-xl shadow-sm backdrop-blur-md"
-            size="icon"
-            variant="outline"
+            className="h-8 gap-1.5 rounded-lg px-2.5 text-xs"
+            variant="ghost"
           >
-            <LayersIcon size={17} />
+            <LayersIcon size={15} />
+            Layers
           </Button>
         </PopoverTrigger>
 
-        <PopoverContent align="end" className="w-80 p-0" side="bottom">
+        <PopoverContent
+          align="end"
+          className="max-h-(--radix-popover-content-available-height) w-80 max-w-[calc(100vw-2rem)] gap-0 overflow-y-auto rounded-2xl p-0"
+          side="bottom"
+          sideOffset={10}
+        >
           <div className="px-4 pt-4 pb-3">
-            <h3 className="font-heading text-sm">Theme</h3>
-            <p className="text-muted-foreground text-xs">
-              {PALETTES[palette].blurb}
+            <h2 className="text-sm font-semibold">Map appearance</h2>
+            <p className="text-muted-foreground mt-1 text-xs">
+              Choose a theme and what you see.
             </p>
           </div>
 
-          <div className="px-2 pb-3">
+          <fieldset
+            aria-label="Map theme"
+            className="grid grid-cols-3 gap-2 px-4 pb-4"
+          >
             {PALETTE_ORDER.map((id) => (
               <button
+                aria-pressed={id === palette}
                 className={cn(
-                  "hover:bg-accent flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors",
-                  id === palette && "bg-accent"
+                  "hover:bg-accent focus-visible:outline-ring rounded-xl border border-transparent p-1.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2",
+                  id === palette && "border-border bg-accent"
                 )}
                 key={id}
                 onClick={() => setPalette(id)}
                 type="button"
               >
                 <PaletteSwatch id={id} />
-                <span className="flex-1 text-sm">{PALETTES[id].label}</span>
-                {id === palette && <CheckIcon size={15} />}
+                <span className="mt-2 flex items-center justify-between gap-1 text-[11px]">
+                  {PALETTES[id].label}
+                  {id === palette && <CheckIcon size={12} />}
+                </span>
               </button>
             ))}
-          </div>
+          </fieldset>
 
           <Separator />
 
-          <div className="px-4 py-3">
-            <h3 className="font-heading pb-2 text-sm">Rendering</h3>
-            <ToggleGroup
-              className="w-full"
-              onValueChange={(v) => v && setQuality(v as QualityLevel)}
-              type="single"
-              value={quality}
-              variant="outline"
-            >
-              {(Object.keys(QUALITY_COPY) as QualityLevel[]).map((q) => (
-                <ToggleGroupItem className="flex-1 text-xs" key={q} value={q}>
-                  {QUALITY_COPY[q].label}
-                </ToggleGroupItem>
-              ))}
-            </ToggleGroup>
-            <p className="text-muted-foreground pt-2 text-xs">
-              {QUALITY_COPY[quality].hint}
-            </p>
-          </div>
+          <details className="group px-4 py-3">
+            <summary className="focus-visible:outline-ring flex min-h-7 cursor-pointer list-none items-center gap-2 rounded-sm text-xs focus-visible:outline-2 [&::-webkit-details-marker]:hidden">
+              <span className="flex-1 font-medium">Rendering quality</span>
+              <span className="text-muted-foreground">
+                {QUALITY_COPY[quality].label}
+              </span>
+              <PlusIcon
+                className="text-muted-foreground transition-transform group-open:rotate-45"
+                size={13}
+              />
+            </summary>
+            <div className="pt-3">
+              <ToggleGroup
+                className="w-full"
+                onValueChange={(v) => v && setQuality(v as QualityLevel)}
+                type="single"
+                value={quality}
+                variant="outline"
+              >
+                {(Object.keys(QUALITY_COPY) as QualityLevel[]).map((q) => (
+                  <ToggleGroupItem
+                    className="flex-1 rounded-lg text-xs"
+                    key={q}
+                    value={q}
+                  >
+                    {QUALITY_COPY[q].label}
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
+              <p className="text-muted-foreground pt-2 text-xs">
+                {QUALITY_COPY[quality].hint}
+              </p>
+            </div>
+          </details>
 
           <Separator />
 
-          <div className="space-y-3 px-4 py-3">
-            <h3 className="font-heading text-sm">Layers</h3>
+          <div className="space-y-4 px-4 pt-4 pb-5">
+            <h3 className="text-xs font-semibold">Map labels</h3>
 
             <LayerToggle
               checked={showStreetNames}

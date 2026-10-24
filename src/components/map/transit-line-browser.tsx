@@ -25,7 +25,7 @@ function LineRow({
   return (
     <button
       aria-label={`Explore ${group.line}, ${group.vehicles.length} vehicles`}
-      className="group hover:bg-muted/70 focus-visible:outline-ring flex w-full items-center gap-3 rounded-xl px-2.5 py-3 text-left transition-colors focus-visible:outline-2"
+      className="group hover:bg-muted/70 focus-visible:outline-ring flex w-full items-center gap-2.5 rounded-xl px-2 py-2.5 text-left transition-colors focus-visible:outline-2"
       onClick={onOpen}
       type="button"
     >
@@ -222,15 +222,17 @@ export function TransitLineBrowser({
         />
         <Input
           aria-label="Search transport lines"
-          className="border-border/60 bg-muted/40 h-10 rounded-xl pr-3 pl-9 text-xs shadow-none"
+          className="border-border/60 bg-muted/40 h-9 rounded-lg pr-3 pl-9 text-xs shadow-none"
           onChange={(event) => onSearch(event.target.value)}
           placeholder="Search lines, stops, ferry, bus…"
           type="search"
           value={query}
         />
       </div>
-      <div className="text-muted-foreground mb-1 flex items-center justify-between px-2 text-xs font-medium tracking-[0.1em] uppercase">
-        <h3>{query ? "Matching lines" : "Explore lines"}</h3>
+      <div className="text-muted-foreground mb-2 flex items-center justify-between px-2 text-xs">
+        <h3 className="font-medium">
+          {query ? "Matching lines" : "All lines"}
+        </h3>
         <span className="tabular-nums">
           {groups.length} {groups.length === 1 ? "line" : "lines"}
         </span>
