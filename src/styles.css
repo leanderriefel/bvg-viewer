@@ -225,3 +225,194 @@ body {
     animation: none;
   }
 }
+
+/* --- arrival ------------------------------------------------------------- */
+
+.boot-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  min-height: 100svh;
+  place-items: center;
+  overflow: hidden;
+  background: #101311;
+  color: #eeeee7;
+  isolation: isolate;
+}
+
+.boot-screen__art,
+.boot-screen__shader {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.boot-screen__art {
+  z-index: -1;
+  background: radial-gradient(
+    ellipse at 50% 72%,
+    #283029 0%,
+    #171d18 28%,
+    #101311 65%
+  );
+}
+
+.boot-screen__shader {
+  opacity: 0;
+  transition: opacity 900ms ease;
+}
+
+.boot-screen__shader[data-visible="true"] {
+  opacity: 1;
+}
+
+.boot-screen__content {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  padding: 24px;
+  text-align: center;
+}
+
+.boot-screen__title {
+  margin: 0;
+  font-size: clamp(72px, 12vw, 152px);
+  font-weight: 400;
+  letter-spacing: -0.07em;
+  line-height: 1;
+}
+
+.boot-screen__track {
+  position: relative;
+  width: 88px;
+  height: 1px;
+  margin-top: 32px;
+  overflow: hidden;
+  appearance: none;
+  border: 0;
+  background: #d7dfca26;
+  color: #c5cdb8;
+}
+
+.boot-screen__track::-webkit-progress-bar {
+  background: transparent;
+}
+
+.boot-screen__track::-webkit-progress-value {
+  background: #c5cdb8;
+}
+
+.boot-screen__track::-moz-progress-bar {
+  background: #c5cdb8;
+}
+
+.boot-screen__track:indeterminate {
+  background:
+    linear-gradient(90deg, transparent, #c5cdb8, transparent) -100% 0 / 50% 100%
+      no-repeat,
+    #d7dfca26;
+  animation: boot-scan 2200ms ease-in-out infinite;
+}
+
+.boot-screen__status {
+  max-width: 320px;
+  margin-top: 16px;
+  color: #a1aa98;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+.boot-screen__retry {
+  min-height: 44px;
+  margin-top: 12px;
+  padding: 8px 16px;
+  border: 0;
+  background: transparent;
+  color: #eeeee7;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.boot-screen__retry:focus-visible {
+  outline: 1px solid #c5cdb8;
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+
+.boot-screen[data-phase="revealing"] {
+  pointer-events: none;
+  animation: boot-reveal 900ms ease-in-out forwards;
+}
+
+.boot-screen[data-phase="revealing"] .boot-screen__content {
+  opacity: 0;
+  transition: opacity 400ms ease;
+}
+
+.world-surface {
+  opacity: 0;
+  transition: opacity 600ms ease;
+}
+
+.world-surface[data-entered="true"] {
+  opacity: 1;
+}
+
+.world-controls {
+  animation: world-controls-enter 500ms both ease;
+}
+
+@keyframes boot-scan {
+  from {
+    background-position: -100% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes boot-reveal {
+  0%,
+  15% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes world-controls-enter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .boot-screen__track,
+  .world-controls {
+    animation: none;
+  }
+
+  .boot-screen__shader,
+  .boot-screen__content,
+  .world-surface {
+    transition: opacity 160ms ease;
+  }
+
+  .world-surface {
+    transform: none;
+  }
+
+  .boot-screen[data-phase="revealing"] {
+    animation: boot-reveal 160ms ease forwards;
+  }
+}

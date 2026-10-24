@@ -2,8 +2,10 @@ import type { Map as MapLibreMap } from "maplibre-gl";
 import { useCallback, useMemo, useRef } from "react";
 
 import { MapBootScreen } from "@/components/map/boot-screen";
+import { useMapEntrance } from "@/map/boot/use-map-entrance";
 import { MapContext } from "@/map/map-context";
 import type { MapApi } from "@/map/map-context";
+import type { PreparationProgress } from "@/map/preparation";
 import { useMapStore } from "@/map/store";
 import { useTransitFeed } from "@/map/transit/use-transit-feed";
 import { useTransitLayer } from "@/map/transit/use-transit-layer";
@@ -25,6 +27,10 @@ import { usePreparedNavigation } from "@/map/use-prepared-navigation";
 
 interface Props {
   children?: React.ReactNode;
+  arrived: boolean;
+  entered: boolean;
+  onArrival: () => void;
+  onProgress: (progress: PreparationProgress) => void;
 }
 
 /**
@@ -32,7 +38,13 @@ interface Props {
  * the UI. The hooks own map preparation and effects; this component is
  * the container element, the camera helpers, and the context.
  */
-export function MapCanvas({ children }: Props) {
+export function MapCanvas({
+  children,
+  arrived,
+  entered,
+  onArrival,
+  onProgress,
+}: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
 
@@ -52,14 +64,16 @@ export function MapCanvas({ children }: Props) {
     style,
   });
 
-  const preparation = useMapPreparation(map);
+  const preparation = useMapPreparation(map, onProgress);
   const startupReady = preparation.stage === "ready";
-  const navigation = usePreparedNavigation(map, startupReady);
+  const navigation = usePreparedNavigation(map, startupReady && arrived);
   const { flyTo, jumpTo } = navigation;
-  const ready = startupReady && !navigation.busy;
+  const mapReady = startupReady && !navigation.busy;
+  const ready = mapReady && arrived;
 
   useRestyle(map, style, appliedStyleRef);
   useViewMode(map, ready, view);
+  useMapEntrance(map, entered && startupReady, onArrival);
   useCameraSync(map, ready);
   usePerfCounters(map);
   useFeatureInteraction(map, ready);
@@ -82,10 +96,10 @@ export function MapCanvas({ children }: Props) {
     <MapContext.Provider value={api}>
       <div className="absolute inset-0" ref={containerRef} />
       {ready && children}
-      {!ready && (
+      {entered && !mapReady && (
         <div className="absolute inset-0 z-20">
           <MapBootScreen
-            destination={navigation.busy}
+            destination
             progress={navigation.progress ?? preparation}
           />
         </div>

@@ -25,6 +25,10 @@ import { buildStyle, PIXEL_RATIO_BY_QUALITY } from "@/map/theme/build-style";
 import type { QualityLevel, ViewMode } from "@/map/theme/build-style";
 import { getPalette } from "@/map/theme/palette";
 import { tileZoomFor } from "@/map/tile-lod";
+import {
+  TRANSIT_POINT_SOURCE_ID,
+  TRANSIT_SOURCE_ID,
+} from "@/map/transit/use-transit-layer";
 
 /**
  * The imperative half of the map, split out of the component so each concern -
@@ -343,7 +347,8 @@ export function useRestyle(
 
 /** Keep the canvas covered until its final starting viewport has rendered. */
 export function useMapPreparation(
-  map: MapLibreMap | null
+  map: MapLibreMap | null,
+  onProgress?: (progress: PreparationProgress) => void
 ): PreparationProgress {
   const [state, setState] = useState<{
     map: MapLibreMap;
@@ -368,28 +373,28 @@ export function useMapPreparation(
           onProgress: (progress) => {
             if (!controller.signal.aborted) {
               setState({ map, progress });
+              onProgress?.(progress);
             }
           },
         });
       } catch (error) {
         if (!controller.signal.aborted) {
-          setState({
-            map,
-            progress: {
-              ...INITIAL_PREPARATION,
-              stage: "error",
-              error:
-                error instanceof Error
-                  ? error.message
-                  : "Unable to load the map. Please try again.",
-            },
-          });
+          const progress: PreparationProgress = {
+            ...INITIAL_PREPARATION,
+            stage: "error",
+            error:
+              error instanceof Error
+                ? error.message
+                : "Unable to load the map. Please try again.",
+          };
+          setState({ map, progress });
+          onProgress?.(progress);
         }
       }
     };
     void run();
     return () => controller.abort();
-  }, [map]);
+  }, [map, onProgress]);
 
   return state?.map === map ? state.progress : INITIAL_PREPARATION;
 }
@@ -549,7 +554,13 @@ export function useFeatureInteraction(
       const hits = map.queryRenderedFeatures(e.point);
       // The live transport layer owns its vehicle inspector. Do not select a
       // building underneath the same click, regardless of listener ordering.
-      if (hits.some((feature) => feature.source?.startsWith("live-transit"))) {
+      if (
+        hits.some(
+          (feature) =>
+            feature.source === TRANSIT_SOURCE_ID ||
+            feature.source === TRANSIT_POINT_SOURCE_ID
+        )
+      ) {
         setSelection(null);
         return;
       }

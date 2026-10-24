@@ -1,7 +1,8 @@
 import { ClientOnly, createFileRoute } from "@tanstack/react-router";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useCallback, useState } from "react";
 
 import { MapBootScreen } from "@/components/map/boot-screen";
+import type { PreparationProgress } from "@/map/preparation";
 
 /**
  * MapLibre touches `document` while its module is still evaluating, so it can
@@ -30,11 +31,19 @@ export const Route = createFileRoute("/")({
 });
 
 function Home() {
+  const [entered, setEntered] = useState(false);
+  const [progress, setProgress] = useState<PreparationProgress>();
+  const onEnter = useCallback(() => setEntered(true), []);
+  const ready = progress?.stage === "ready";
+
   return (
-    <ClientOnly fallback={<MapBootScreen />}>
-      <Suspense fallback={<MapBootScreen />}>
-        <AppShell />
-      </Suspense>
-    </ClientOnly>
+    <>
+      <ClientOnly fallback={null}>
+        <Suspense fallback={null}>
+          <AppShell entered={entered} onProgress={setProgress} />
+        </Suspense>
+      </ClientOnly>
+      <MapBootScreen onEnter={onEnter} progress={progress} ready={ready} />
+    </>
   );
 }
