@@ -5,6 +5,7 @@ import { PRODUCT_COLORS } from "@/map/transit/model";
 import type { TransitVehicle } from "@/map/transit/model";
 import type { TransitRoute } from "@/map/transit/route";
 import { useTransitStore } from "@/map/transit/store";
+import { isXrayVehicle } from "@/map/transit/xray";
 
 const ROUTE_SOURCE_ID = "live-transit-route";
 const ROUTE_HALO_ID = "live-transit-route-halo";
@@ -144,6 +145,14 @@ export function bindTransitRoute(map: MapLibreMap): () => void {
     }
     previousKey = key;
     previousRoute = route;
+    const xray = isXrayVehicle(vehicle);
+    map.setPaintProperty(
+      ROUTE_LINE_ID,
+      "line-dasharray",
+      xray ? [2, 2] : undefined
+    );
+    map.setPaintProperty(ROUTE_HALO_ID, "line-opacity", xray ? 0.2 : 0.65);
+    map.setPaintProperty(ROUTE_HALO_ID, "line-blur", xray ? 2 : 0);
     source.setData(
       visible && activeId
         ? routeData(vehicle, route)

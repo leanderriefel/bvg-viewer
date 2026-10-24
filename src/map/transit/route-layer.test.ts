@@ -20,6 +20,7 @@ function mapSurface() {
       layers.add(layer.id);
     },
     removeLayer: (id: string) => layers.delete(id),
+    setPaintProperty: vi.fn(),
     on: (event: string, listener: () => void) => {
       const registered = listeners.get(event) ?? new Set<() => void>();
       registered.add(listener);
