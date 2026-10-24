@@ -64,7 +64,7 @@ Two findings were counter-intuitive enough to be worth repeating:
 - **Buildings are not the bottleneck.** Moving the extrusion layer from z13 all the way to z16 — from "buildings everywhere" to "almost none" — only bought about 3 fps. **Tile count** is what dominates, because every layer pays for every tile, which is why the LOD knob is worth 2.5× on its own.
 - **A small tile cache is not a performance setting.** Trimming it to 200 tiles made things _slower_, because rotating the camera kept evicting tiles that were about to be needed again and each one had to be re-parsed.
 
-The rendering preset (Performance / Balanced / Quality) in the layers popover controls the LOD falloff, when extrusions start, and antialiasing. The existing resolution, geometry, labels and preset choices are preserved; loading and runtime optimizations do not reduce visual detail.
+The rendering preset (Performance / Balanced / Quality) in the layers popover controls the LOD falloff, resolution and antialiasing. The existing source geometry, labels and preset choices are preserved.
 
 Startup now prioritizes a complete scene over the earliest possible reveal. A three-second local-source probe overlaps worker startup. The map then has a 27-second preparation budget, with five seconds reserved for restoring and finishing the starting view. It visits nearby positions and bearings behind the loading screen using the same renderer, so its decoded geometry, GPU buffers and shaders can be reused. Camera hashes are only updated after preparation.
 
@@ -74,7 +74,9 @@ On the hosted source, a twelve-request download pool also warms Berlin's z11–1
 
 Parsed cache limits are 128, 256 or 512 tiles per source according to memory and viewport hints; raising the zoom-level multiplier makes those limits effective. Tile selection reuses camera-invariant math instead of repeating numerical integrals per tile. Status updates do not serialize preferences or write localStorage. Service-worker responses return before disk writes, and cache trimming runs in serialized batches rather than scanning thousands of entries for every tile.
 
-Buildings only exist in OpenMapTiles from z13 up: z13 holds merged massing polygons and z14 holds individual footprints with real heights. Buildings use a separate source that keeps at least z13 detail in pitched views, while roads and labels can use coarser tiles. Both extrusion layers share that coverage, so tilting or rotating cannot leave a gap when the massing fades into detailed buildings.
+Buildings only exist in OpenMapTiles from z13 up: z13 holds merged massing polygons and z14 holds individual footprints with real heights. Buildings use a separate source that keeps at least z13 detail in pitched views, while roads and labels can use coarser tiles. One opaque extrusion layer draws both levels, using a 12m fallback when heights are absent. This removes overlapping transparent passes during zoom transitions and the extra depth pass previously needed by the almost-opaque Vivid and Blueprint themes. Heights, bases and colours remain feature-only, with no additional vertex attributes or geometry layers.
+
+Above 60° pitch, a theme-coloured horizon gradient gradually softens distant tile changes. It uses a cached, unblurred browser gradient behind the controls; only pitch and resize events update its position. It adds no tile requests, WebGL layers, feature queries or animation loop, and is removed in 2D. Actual vector footprint replacements remain discrete: the effect reduces their contrast rather than generating geometry absent from the source data. Tile detail, cache limits, label fading and drawing-buffer resolution are unchanged.
 
 ## Stack
 
