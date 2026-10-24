@@ -6,6 +6,7 @@ import type { RefObject } from "react";
 import { BERLIN_MAX_BOUNDS, DEFAULT_CAMERA } from "@/lib/geo";
 import type { LngLat } from "@/lib/geo";
 import { exposeMapForDebugging } from "@/map/debug";
+import { DRAG_ROTATE_OPTIONS } from "@/map/navigation";
 import {
   BUILDING_SOURCE_ID,
   MIN_BUILDING_TILE_ZOOM,
@@ -200,6 +201,7 @@ export function useMapInstance(args: {
       zoom: start.zoom,
       pitch: initialView === "flat" ? 0 : start.pitch,
       bearing: initialView === "flat" ? 0 : start.bearing,
+      dragRotate: DRAG_ROTATE_OPTIONS,
       maxBounds: [
         [BERLIN_MAX_BOUNDS[0], BERLIN_MAX_BOUNDS[1]],
         [BERLIN_MAX_BOUNDS[2], BERLIN_MAX_BOUNDS[3]],
@@ -209,7 +211,7 @@ export function useMapInstance(args: {
       // plane. 11 is roughly where Berlin spans a desktop viewport.
       minZoom: 11,
       maxZoom: 20,
-      maxPitch: 78,
+      maxPitch: initialView === "flat" ? 0 : 78,
       attributionControl: false,
       // Cross-fading symbols repaint the whole label plane on every zoom
       // step; a hard cut is free and reads fine at map speeds.
