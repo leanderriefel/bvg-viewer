@@ -13,6 +13,7 @@ import { MapControls, StatsHud } from "./map-hud";
 import { PlacesMenu } from "./places-menu";
 import { SearchCommand } from "./search-command";
 import { SettingsSheet } from "./settings-sheet";
+import { TourControls } from "./tour-controls";
 import { TransitPanel } from "./transit-panel";
 import { ViewControls } from "./view-controls";
 
@@ -85,6 +86,9 @@ export function AppShell({ entered, onProgress }: Props) {
 
               <div className="map-view-controls pointer-events-auto">
                 <ViewControls />
+              </div>
+              <div className="map-tour">
+                <TourControls />
               </div>
               <div className="map-feature">
                 <FeatureInspector />

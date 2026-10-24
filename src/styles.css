@@ -172,6 +172,7 @@ body {
 
 .map-navigator,
 .map-view-controls,
+.map-tour,
 .map-feature,
 .map-camera-controls,
 .map-diagnostics,
@@ -195,8 +196,15 @@ body {
   right: max(var(--map-edge), env(safe-area-inset-right));
 }
 
-.map-feature {
+.map-tour {
   top: calc(var(--map-top) + 112px);
+  left: max(var(--map-edge), env(safe-area-inset-left));
+  z-index: 15;
+  width: 296px;
+}
+
+.map-feature {
+  top: calc(var(--map-top) + 160px);
   bottom: calc(var(--map-bottom) + 52px);
   left: max(var(--map-edge), env(safe-area-inset-left));
   z-index: 10;
@@ -258,6 +266,7 @@ body {
     top: calc(var(--map-top) + 160px);
   }
 
+  .map-tour,
   .map-feature {
     width: auto;
     right: calc(var(--map-edge) + 60px);
@@ -284,6 +293,7 @@ body {
       .map-diagnostics,
       .map-view-controls,
       .map-camera-controls,
+      .map-tour,
       .map-feature
     ) {
     visibility: hidden;

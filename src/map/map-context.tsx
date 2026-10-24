@@ -2,6 +2,7 @@ import type { Map as MapLibreMap } from "maplibre-gl";
 import { createContext, useContext } from "react";
 
 import type { LngLat } from "@/lib/geo";
+import type { BerlinTour } from "@/map/tour/use-berlin-tour";
 
 export interface FlyTarget {
   center: LngLat;
@@ -19,6 +20,7 @@ export interface MapApi {
   flyTo: (target: FlyTarget) => void;
   jumpTo: (target: FlyTarget) => void;
   resetNorth: () => void;
+  tour: BerlinTour;
 }
 
 export const MapContext = createContext<MapApi | null>(null);

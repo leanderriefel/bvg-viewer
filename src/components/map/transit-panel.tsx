@@ -5,6 +5,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BERLIN_TIMEZONE } from "@/lib/geo";
 import { cn } from "@/lib/utils";
+import { useMapApi } from "@/map/map-context";
 import {
   MAX_VEHICLE_AGE_MS,
   PRODUCT_COLORS,
@@ -229,6 +230,7 @@ function FeedDetails({
 
 /** Browse the live network by line, then direction, then individual vehicle. */
 export function TransitPanel() {
+  const { tour } = useMapApi();
   const [expanded, setExpanded] = useState(false);
   const [lineKey, setLineKey] = useState<string | null>(null);
   const [now, setNow] = useState(0);
@@ -248,13 +250,14 @@ export function TransitPanel() {
     (item) =>
       item.id === selectedId && now - item.observedAt <= MAX_VEHICLE_AGE_MS
   );
-  const open = expanded || Boolean(selectedId);
+  const open = !tour.state && (expanded || Boolean(selectedId));
   const connection = connectionLabel(snapshot, error, now);
   let connectionTone = "bg-muted-foreground";
   if (enabled) {
     connectionTone = connection.live ? "bg-emerald-500" : "bg-amber-500";
   }
   const toggleExpanded = () => {
+    tour.exit();
     setExpanded(!open);
     if (open) {
       selectVehicle(null);
