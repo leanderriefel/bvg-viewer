@@ -16,7 +16,6 @@ Open `/models/vehicles/` while the app is running to explore the collection, sea
 | `scripts/blender/build_vehicles.py` | Original procedural mesh construction and GLB export |
 | `scripts/build-vehicles.mjs` | Rebuild through the live Blender Lab add-on |
 | `scripts/blender/render_vehicles.py` | Reproducible Blender thumbnail rendering |
-| `tests/vehicle-assets.test.ts` | Export-contract, bounds, material, metadata and service regression checks |
 
 ## Inventory
 
@@ -97,7 +96,6 @@ Start the official Blender Lab MCP add-on server on `127.0.0.1:9876` in Blender 
 
 ```sh
 vp run vehicles:build
-vp test run tests/vehicle-assets.test.ts
 ```
 
 The builder creates a dedicated live scene, exports only that scene's selected vehicle, and writes an isolated source library. A separate background Blender converts that library to an ordinary `.blend`. The live user's original file and other scene data are not saved into the distributed source. Repeated builds create a new fleet scene so existing work is preserved.
@@ -116,6 +114,6 @@ With Python and Pillow installed, `python scripts/blender/compose_previews.py` a
 
 ## Validation and license
 
-All 49 GLBs were parsed with Three.js 0.180.0 `GLTFLoader` and checked with the Khronos glTF validator (2.0.0-dev.3.10): **zero errors and zero warnings**. The 53 regression cases independently read binary accessors and check finite geometry, bounds, root isolation, colors, indices, triangles, mesh counts, child-node metadata, evidence links and mode collisions.
+All 49 GLBs were parsed with Three.js 0.180.0 `GLTFLoader` and checked with the Khronos glTF validator (2.0.0-dev.3.10): **zero errors and zero warnings**. Browser verification confirmed the live map loads and renders all eight representative vehicles in a deterministic transit fixture, using the actual MapLibre/Three.js renderer.
 
 Original geometry, generated GLBs, Blender source and preview renders are dedicated to the public domain under **CC0 1.0**; see `LICENSE.txt`. Operator/manufacturer names identify the modeled vehicle families.
