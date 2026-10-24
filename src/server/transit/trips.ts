@@ -108,11 +108,7 @@ export class TripRoutes {
     let response: Response;
     try {
       response = await this.request(url, {
-        headers: {
-          accept: "application/json",
-          "user-agent":
-            "berlin-in-3d (https://github.com/leanderriefel/bvg-viewer)",
-        },
+        headers: { accept: "application/json" },
         signal: AbortSignal.timeout(10_000),
       });
     } catch {

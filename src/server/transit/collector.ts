@@ -303,11 +303,8 @@ export class TransitCollector {
       pretty: "false",
     }).toString();
     const response = await this.request(url, {
-      headers: {
-        accept: "application/json",
-        "user-agent":
-          "berlin-in-3d (https://github.com/leanderriefel/bvg-viewer)",
-      },
+      // The public gateway stalled with our custom agent during live checks.
+      headers: { accept: "application/json" },
       signal: AbortSignal.any([
         this.controller.signal,
         AbortSignal.timeout(10_000),
