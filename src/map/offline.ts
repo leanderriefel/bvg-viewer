@@ -19,10 +19,6 @@ async function registerQuietly(): Promise<void> {
 
 let registered = false;
 
-function registerWhenIdle(): void {
-  void registerQuietly();
-}
-
 export function registerServiceWorker(): void {
   if (registered || typeof navigator === "undefined") {
     return;
@@ -32,17 +28,9 @@ export function registerServiceWorker(): void {
   }
   registered = true;
 
-  // Registration is deferred to idle: it competes with the first tile requests
-  // otherwise, and the cache only pays off on the *next* visit anyway.
-  const idle = window.requestIdleCallback as
-    | ((cb: () => void, opts?: { timeout: number }) => number)
-    | undefined;
-
-  if (idle) {
-    idle(registerWhenIdle, { timeout: 4000 });
-  } else {
-    setTimeout(registerWhenIdle, 2000);
-  }
+  // Start activation now so the first visit's map preparation can populate the
+  // cache too. Registration stays asynchronous and cannot block source loading.
+  void registerQuietly();
 }
 
 export async function getStorageEstimate(): Promise<StorageEstimate | null> {

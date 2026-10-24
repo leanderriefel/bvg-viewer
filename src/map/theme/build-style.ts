@@ -916,12 +916,12 @@ export { EXTRUSION_ZOOM };
  * Drawing-buffer resolution cap per quality tier, as a function so `quality`
  * can read the display's real density at map-creation time.
  *
- * A pitched 3D city is fragment-bound: cost scales with the square of the
- * rendered pixel count, so rendering "balanced" at 1.5x instead of a retina
- * 3x saves over half of every shaded pixel while staying crisp on laptops.
+ * Rendering cost grows with the square of pixel density. Keep the default at
+ * one drawing pixel per CSS pixel; native display density is an explicit
+ * Quality choice. At a display ratio of 1.5 this removes 56% of shaded pixels.
  */
 export const PIXEL_RATIO_BY_QUALITY: Record<QualityLevel, () => number> = {
-  balanced: () => Math.min(window.devicePixelRatio || 1, 1.5),
+  balanced: () => Math.min(window.devicePixelRatio || 1, 1),
   performance: () => 1,
   quality: () => window.devicePixelRatio || 1,
 };

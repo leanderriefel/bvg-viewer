@@ -1,0 +1,725 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Berlin map performance check</title>
+    <style>
+      body {
+        margin: 0;
+        font: 13px monospace;
+        background: #f5f5f5;
+      }
+      header {
+        padding: 10px;
+      }
+      button {
+        padding: 7px 10px;
+        margin-right: 6px;
+      }
+      #status {
+        margin-left: 8px;
+      }
+      pre {
+        height: 220px;
+        overflow: auto;
+        padding: 10px;
+        margin: 0;
+        background: #171717;
+        color: #e5e5e5;
+        white-space: pre-wrap;
+      }
+      iframe {
+        border: 0;
+        width: 100%;
+        height: calc(100vh - 292px);
+        min-height: 320px;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <button id="inspect" disabled>Inspect map</button>
+      <button id="orbit" disabled>Run orbit benchmark</button>
+      <button id="travel" disabled>Run travel benchmark</button>
+      <span id="status" role="status">Waiting for the app…</span>
+    </header>
+    <pre id="results" aria-label="Performance metrics"></pre>
+    <iframe id="app" title="Berlin map performance test"></iframe>
+    <script type="module">
+      const app = document.querySelector("#app");
+      const output = document.querySelector("#results");
+      const status = document.querySelector("#status");
+      const buttons = [...document.querySelectorAll("button")];
+      const metrics = {
+        status: "loading",
+        startup: null,
+        inspection: null,
+        orbit: null,
+        travel: null,
+      };
+      let session = null;
+      let generation = 0;
+      let busy = false;
+      let navigationStartedAt = performance.now();
+
+      function publish(message) {
+        if (message) status.textContent = message;
+        output.textContent = JSON.stringify(metrics, null, 2);
+      }
+
+      function controls(enabled) {
+        for (const button of buttons) button.disabled = !enabled;
+      }
+
+      function assertCurrent(current, map = current.map) {
+        if (
+          current !== session ||
+          current.signal.aborted ||
+          app.contentWindow.__map !== map ||
+          map?._removed
+        ) {
+          throw new DOMException("The iframe or map changed", "AbortError");
+        }
+      }
+
+      function camera(map) {
+        const center = map.getCenter();
+        return {
+          center: [center.lng, center.lat],
+          zoom: map.getZoom(),
+          pitch: map.getPitch(),
+          bearing: map.getBearing(),
+        };
+      }
+
+      function tileHasData(tile) {
+        return (
+          !!tile &&
+          (tile.hasData?.() ??
+            ["loaded", "reloading", "expired"].includes(tile.state))
+        );
+      }
+
+      function canonicalKey(tile) {
+        const id = tile?.tileID?.canonical;
+        return id ? `${id.z}/${id.x}/${id.y}` : null;
+      }
+
+      function snapshot(map) {
+        const sources = {};
+        const retained = {};
+        let totalPendingTiles = 0;
+        for (const [id, manager] of Object.entries(
+          map.style?.tileManagers ?? {}
+        )) {
+          const source = map.getSource(id);
+          const ids = manager.getIds();
+          const renderable = manager.getRenderableIds();
+          const states = {};
+          const canonicalLod = {};
+          const parsed = new Set();
+          let pending = 0;
+          let missingData = 0;
+          for (const key of ids) {
+            const tile = manager.getTileByID(key);
+            const state = tile?.state ?? "missing";
+            states[state] = (states[state] ?? 0) + 1;
+            if (["loading", "reloading"].includes(state)) pending += 1;
+            if (!tileHasData(tile)) missingData += 1;
+            else if (canonicalKey(tile)) parsed.add(canonicalKey(tile));
+          }
+          for (const key of renderable) {
+            const zoom =
+              manager.getTileByID(key)?.tileID?.canonical?.z ?? "unknown";
+            canonicalLod[zoom] = (canonicalLod[zoom] ?? 0) + 1;
+          }
+          const cache = manager._outOfViewCache ?? manager._cache;
+          let cachedParsedTiles = 0;
+          for (const entries of Object.values(cache?.data ?? {})) {
+            for (const entry of entries) {
+              if (tileHasData(entry.value)) {
+                cachedParsedTiles += 1;
+                if (canonicalKey(entry.value))
+                  parsed.add(canonicalKey(entry.value));
+              }
+            }
+          }
+          let ideal = { available: false };
+          if (
+            source?.type === "vector" &&
+            typeof map.coveringTiles === "function"
+          ) {
+            try {
+              const coordinates = map
+                .coveringTiles({
+                  tileSize: source.tileSize,
+                  minzoom: source.minzoom,
+                  maxzoom: source.maxzoom,
+                  roundZoom: source.roundZoom,
+                  reparseOverscaled: source.reparseOverscaled,
+                  calculateTileZoom: source.calculateTileZoom,
+                  maxContentElevation: manager._maxContentElevationSeen,
+                })
+                .filter(
+                  (coordinate) => !source.hasTile || source.hasTile(coordinate)
+                );
+              let missing = 0;
+              let unloaded = 0;
+              for (const coordinate of coordinates) {
+                const tile = manager.getTileByID(coordinate.key);
+                if (!tile) missing += 1;
+                if (!tileHasData(tile)) unloaded += 1;
+              }
+              ideal = {
+                available: true,
+                count: coordinates.length,
+                missing,
+                unloaded,
+              };
+            } catch (error) {
+              ideal = { available: false, error: String(error) };
+            }
+          }
+          totalPendingTiles += pending;
+          retained[id] = parsed;
+          sources[id] = {
+            used: manager.used,
+            activeTiles: ids.length,
+            renderableTiles: renderable.length,
+            canonicalLod,
+            states,
+            pendingTiles: pending,
+            tilesWithoutData: missingData,
+            ideal,
+            configuredCacheMax: manager._maxTileCacheSize,
+            configuredCacheZoomLevels: manager._maxTileCacheZoomLevels,
+            effectiveCacheMax: cache?.max ?? cache?.maxSize ?? null,
+            cachedTiles: cache?.order?.length ?? null,
+            cachedParsedTiles,
+            retainedParsedCanonicalTiles: parsed.size,
+            retainedKeySample: [...parsed].slice(0, 12),
+          };
+        }
+        return {
+          metrics: {
+            camera: camera(map),
+            loaded: map.loaded(),
+            tilesLoaded: map.areTilesLoaded(),
+            totalPendingTiles,
+            sources,
+          },
+          retained,
+        };
+      }
+
+      function retainedEvidence(before, after) {
+        const evidence = {};
+        for (const [id, keys] of Object.entries(before.retained)) {
+          const next = after.retained[id] ?? new Set();
+          evidence[id] = {
+            before: keys.size,
+            after: next.size,
+            retainedAcrossRun: [...keys].filter((key) => next.has(key)).length,
+          };
+        }
+        return evidence;
+      }
+
+      function environment(map) {
+        const frame = app.contentWindow;
+        const canvas = map.getCanvas();
+        const bounds = canvas.getBoundingClientRect();
+        const gl = map.painter?.context?.gl;
+        let webgl = { available: false };
+        if (gl) {
+          try {
+            const debug = gl.getExtension("WEBGL_debug_renderer_info");
+            webgl = {
+              available: true,
+              renderer: gl.getParameter(
+                debug?.UNMASKED_RENDERER_WEBGL ?? gl.RENDERER
+              ),
+              vendor: gl.getParameter(
+                debug?.UNMASKED_VENDOR_WEBGL ?? gl.VENDOR
+              ),
+              rendererUnmasked: !!debug,
+              maskedRenderer: gl.getParameter(gl.RENDERER),
+              version: gl.getParameter(gl.VERSION),
+              shadingLanguageVersion: gl.getParameter(
+                gl.SHADING_LANGUAGE_VERSION
+              ),
+              contextLost: gl.isContextLost(),
+              drawingBufferWidth: gl.drawingBufferWidth,
+              drawingBufferHeight: gl.drawingBufferHeight,
+            };
+          } catch (error) {
+            webgl = { available: false, error: String(error) };
+          }
+        }
+        return {
+          hardwareConcurrency: frame.navigator.hardwareConcurrency ?? null,
+          deviceMemoryGiB: frame.navigator.deviceMemory ?? null,
+          devicePixelRatio: frame.devicePixelRatio,
+          mapPixelRatio: map.getPixelRatio(),
+          userAgent: frame.navigator.userAgent,
+          platform: frame.navigator.platform,
+          canvas: {
+            width: canvas.width,
+            height: canvas.height,
+            cssWidth: bounds.width,
+            cssHeight: bounds.height,
+          },
+          webgl,
+        };
+      }
+
+      async function persistentCaches(current) {
+        try {
+          const storage = app.contentWindow.caches;
+          const entries = [];
+          for (const name of (await storage.keys()).filter((name) =>
+            name.startsWith("berlin3d-")
+          )) {
+            assertCurrent(current);
+            const cache = await storage.open(name);
+            const keys = await cache.keys();
+            entries.push({
+              name,
+              entries: keys.length,
+              vectorTileEntries: keys.filter((request) =>
+                /\/planet\/[^/]+\/\d+\/\d+\/\d+/u.test(
+                  new URL(request.url).pathname
+                )
+              ).length,
+            });
+          }
+          assertCurrent(current);
+          return { available: true, entries };
+        } catch (error) {
+          if (current.signal.aborted) throw error;
+          return { available: false, error: String(error) };
+        }
+      }
+
+      function waitForMap(current, move, deadline, eventType = "idle") {
+        assertCurrent(current);
+        const map = current.map;
+        return new Promise((resolve, reject) => {
+          let rendered = false;
+          let settled = false;
+          const finish = (error) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            map.off("render", onRender);
+            map.off(eventType, onEvent);
+            map.off("error", onError);
+            current.signal.removeEventListener("abort", onAbort);
+            if (error) reject(error);
+            else resolve();
+          };
+          const onRender = () => {
+            rendered = true;
+          };
+          const onEvent = () => {
+            try {
+              assertCurrent(current);
+              if (
+                eventType === "moveend" ||
+                (rendered &&
+                  map.loaded() &&
+                  map.areTilesLoaded() &&
+                  !map.isMoving())
+              )
+                finish();
+            } catch (error) {
+              finish(error);
+            }
+          };
+          const onError = (event) =>
+            finish(event.error ?? new Error("Map data failed"));
+          const onAbort = () =>
+            finish(new DOMException("The iframe or map changed", "AbortError"));
+          const timer = setTimeout(
+            () => finish(new Error("Map step exceeded its 10 second deadline")),
+            Math.max(1, deadline - performance.now())
+          );
+          map.on("render", onRender);
+          map.on(eventType, onEvent);
+          map.on("error", onError);
+          current.signal.addEventListener("abort", onAbort, { once: true });
+          try {
+            move?.();
+            map.triggerRepaint();
+          } catch (error) {
+            finish(error);
+          }
+        });
+      }
+
+      function sample(current) {
+        const map = current.map;
+        const intervals = [];
+        const pending = new Set();
+        const events = {
+          sourceLoading: 0,
+          sourceData: 0,
+          tileLoading: 0,
+          tileData: 0,
+          errors: [],
+        };
+        let previous = null;
+        const started = performance.now();
+        const onRender = () => {
+          const now = performance.now();
+          if (previous !== null) intervals.push(now - previous);
+          previous = now;
+        };
+        const keyFor = (event) => {
+          const key = (event.coord ?? event.tile?.tileID)?.key;
+          return key === undefined ? null : `${event.sourceId}:${key}`;
+        };
+        const onLoading = (event) => {
+          events.sourceLoading += 1;
+          const key = keyFor(event);
+          if (key) {
+            events.tileLoading += 1;
+            pending.add(key);
+          }
+        };
+        const onData = (event) => {
+          events.sourceData += 1;
+          const key = keyFor(event);
+          if (key && event.tile?.state === "loaded") {
+            events.tileData += 1;
+            pending.delete(key);
+          }
+        };
+        const onError = (event) =>
+          events.errors.push(
+            String(event.error?.message ?? event.error ?? "Unknown map error")
+          );
+        const listeners = [
+          ["render", onRender],
+          ["sourcedataloading", onLoading],
+          ["sourcedata", onData],
+          ["error", onError],
+        ];
+        for (const [event, listener] of listeners) map.on(event, listener);
+        const stop = () => {
+          for (const [event, listener] of listeners) map.off(event, listener);
+          current.signal.removeEventListener("abort", stop);
+        };
+        current.signal.addEventListener("abort", stop, { once: true });
+        return () => {
+          stop();
+          const sorted = [...intervals].sort((left, right) => left - right);
+          const percentile = (fraction) =>
+            sorted.length
+              ? sorted[
+                  Math.min(
+                    sorted.length - 1,
+                    Math.ceil(sorted.length * fraction) - 1
+                  )
+                ]
+              : null;
+          const sum = intervals.reduce(
+            (total, interval) => total + interval,
+            0
+          );
+          return {
+            elapsedMs: performance.now() - started,
+            renderFrames: intervals.length + (previous === null ? 0 : 1),
+            intervals: {
+              count: intervals.length,
+              p50Ms: percentile(0.5),
+              p95Ms: percentile(0.95),
+              maxMs: sorted.at(-1) ?? null,
+              framesOver50Ms: intervals.filter((interval) => interval > 50)
+                .length,
+              averageFps: sum > 0 ? (intervals.length * 1000) / sum : null,
+            },
+            events,
+            unmatchedTileLoadingEvents: pending.size,
+            note: "Event counts measure source activity, not network requests; final pendingTiles comes from actual tile state. No feature queries run per frame.",
+          };
+        };
+      }
+
+      async function runAction(name, action) {
+        const current = session;
+        if (busy || !current?.ready) return;
+        busy = true;
+        controls(false);
+        metrics.status = `running ${name}`;
+        publish(`Running ${name}…`);
+        try {
+          assertCurrent(current);
+          await action(current);
+          assertCurrent(current);
+          metrics.status = "ready";
+          publish(`${name} complete`);
+        } catch (error) {
+          if (current === session && !current.signal.aborted) {
+            metrics.status = "error";
+            metrics.error = String(error);
+            publish(String(error));
+          }
+        } finally {
+          if (current === session) {
+            busy = false;
+            controls(current.ready && !current.signal.aborted);
+          }
+        }
+      }
+
+      document.querySelector("#inspect").onclick = () =>
+        runAction("inspection", async (current) => {
+          metrics.inspection = {
+            ...snapshot(current.map).metrics,
+            environment: environment(current.map),
+            persistentCaches: await persistentCaches(current),
+          };
+        });
+
+      document.querySelector("#orbit").onclick = () =>
+        runAction("orbit", async (current) => {
+          const map = current.map;
+          const before = snapshot(map);
+          const home = camera(map);
+          const stop = sample(current);
+          const deadline = performance.now() + 10_000;
+          let failure = null;
+          try {
+            // MapLibre normalizes bearing + 360 to no motion. Four contiguous
+            // linear quarter turns produce the full 6000ms orbit instead.
+            for (let quarter = 1; quarter <= 4; quarter += 1) {
+              await waitForMap(
+                current,
+                () =>
+                  map.easeTo({
+                    ...home,
+                    bearing: home.bearing + quarter * 90,
+                    duration: 1500,
+                    easing: (time) => time,
+                    essential: true,
+                  }),
+                deadline,
+                "moveend"
+              );
+            }
+            await waitForMap(current, null, deadline);
+          } catch (error) {
+            failure = String(error);
+            if (!current.signal.aborted) {
+              assertCurrent(current);
+              map.stop();
+            }
+          } finally {
+            const measurement = stop();
+            assertCurrent(current);
+            const after = snapshot(map);
+            metrics.orbit = {
+              requestedDegrees: 360,
+              requestedAnimationMs: 6000,
+              deadlineMs: 10_000,
+              ready:
+                !failure && after.metrics.loaded && after.metrics.tilesLoaded,
+              error: failure,
+              ...measurement,
+              before: before.metrics,
+              after: after.metrics,
+              parsedRetention: retainedEvidence(before, after),
+            };
+          }
+        });
+
+      document.querySelector("#travel").onclick = () =>
+        runAction("travel", async (current) => {
+          const map = current.map;
+          const before = snapshot(map);
+          const home = camera(map);
+          const destinations = [
+            { name: "Alexanderplatz", center: [13.413, 52.5219], zoom: 15.5 },
+            {
+              name: "Brandenburg Gate",
+              center: [13.3777, 52.5163],
+              zoom: 15.5,
+            },
+            { name: "Home", center: [13.405, 52.52], zoom: 14.2 },
+          ];
+          const steps = [];
+          const stop = sample(current);
+          try {
+            for (const destination of destinations) {
+              assertCurrent(current);
+              const started = performance.now();
+              let failure = null;
+              try {
+                await waitForMap(
+                  current,
+                  () =>
+                    map.flyTo({
+                      ...home,
+                      center: destination.center,
+                      zoom: destination.zoom,
+                      duration: 1800,
+                      essential: true,
+                    }),
+                  started + 10_000
+                );
+              } catch (error) {
+                assertCurrent(current);
+                map.stop();
+                failure = String(error);
+              }
+              const view = snapshot(map);
+              steps.push({
+                destination: destination.name,
+                elapsedMs: performance.now() - started,
+                ready:
+                  !failure && view.metrics.loaded && view.metrics.tilesLoaded,
+                error: failure,
+                ...view.metrics,
+              });
+              metrics.travel = { running: true, steps };
+              publish(`Travel: ${destination.name}`);
+            }
+          } finally {
+            const measurement = stop();
+            assertCurrent(current);
+            const after = snapshot(map);
+            metrics.travel = {
+              running: false,
+              ready: steps.length === 3 && steps.every((step) => step.ready),
+              steps,
+              ...measurement,
+              before: before.metrics,
+              after: after.metrics,
+              parsedRetention: retainedEvidence(before, after),
+            };
+          }
+        });
+
+      function invalidate() {
+        session?.controller.abort();
+        controls(false);
+        busy = false;
+        metrics.status = "loading";
+        navigationStartedAt = performance.now();
+        publish("Iframe navigation changed; waiting for the app…");
+      }
+
+      async function observeNavigation() {
+        session?.controller.abort();
+        const controller = new AbortController();
+        const current = {
+          controller,
+          signal: controller.signal,
+          generation: ++generation,
+          map: null,
+          ready: false,
+        };
+        session = current;
+        controls(false);
+        busy = false;
+        metrics.status = "loading";
+        metrics.startup = null;
+        metrics.inspection = null;
+        metrics.orbit = null;
+        metrics.travel = null;
+        delete metrics.error;
+        const frame = app.contentWindow;
+        frame.addEventListener("beforeunload", invalidate, { once: true });
+        const deadline = performance.now() + 60_000;
+        const timer = setInterval(async () => {
+          if (current !== session || current.signal.aborted) {
+            clearInterval(timer);
+            return;
+          }
+          try {
+            const doc = app.contentDocument;
+            const map = frame.__map;
+            const progress = doc.querySelector(
+              'progress[aria-label="Preparing map data"]'
+            );
+            const loader = doc.querySelector("output[aria-live]");
+            const search = doc.querySelector('[aria-label="Search Berlin"]');
+            const uiReady =
+              !!search && !search.closest('[inert], [aria-hidden="true"]');
+            const ready =
+              map &&
+              !progress &&
+              !loader &&
+              uiReady &&
+              map.loaded() &&
+              map.areTilesLoaded();
+            metrics.startup = {
+              ready: !!ready,
+              elapsedSinceHarnessNavigationMs:
+                performance.now() - navigationStartedAt,
+              iframeNavigationElapsedMs: frame.performance.now(),
+              loaderText: loader?.textContent ?? null,
+              preparationCompleted: progress?.value ?? null,
+              preparationTotal: progress?.max ?? null,
+              uiReady,
+              loaded: map?.loaded() ?? false,
+              tilesLoaded: map?.areTilesLoaded() ?? false,
+            };
+            if (ready) {
+              clearInterval(timer);
+              current.map = map;
+              current.ready = true;
+              map.on("remove", () => {
+                if (current === session) {
+                  invalidate();
+                  void observeNavigation();
+                }
+              });
+              metrics.startup.readyAtIso = new Date().toISOString();
+              metrics.startup.navigation = frame.performance
+                .getEntriesByType("navigation")
+                .map((entry) => ({
+                  type: entry.type,
+                  domContentLoadedMs: entry.domContentLoadedEventEnd,
+                  loadEventEndMs: entry.loadEventEnd,
+                  responseEndMs: entry.responseEnd,
+                }));
+              metrics.inspection = {
+                ...snapshot(map).metrics,
+                environment: environment(map),
+                persistentCaches: await persistentCaches(current),
+              };
+              assertCurrent(current);
+              metrics.status = "ready";
+              controls(true);
+              publish("App ready; benchmarks enabled");
+            } else if (performance.now() >= deadline) {
+              clearInterval(timer);
+              metrics.status = "startup timeout";
+              publish("App did not become ready within 60 seconds");
+            } else {
+              publish(loader?.textContent ?? "Waiting for map and controls…");
+            }
+          } catch (error) {
+            clearInterval(timer);
+            if (current === session && !current.signal.aborted) {
+              metrics.status = "startup error";
+              metrics.error = String(error);
+              publish(String(error));
+            }
+          }
+        }, 150);
+        current.signal.addEventListener("abort", () => clearInterval(timer), {
+          once: true,
+        });
+      }
+
+      app.addEventListener("load", () => void observeNavigation());
+      publish();
+      navigationStartedAt = performance.now();
+      app.src = "/?debug=performance-check#14.2/52.52/13.405/-18/55";
+    </script>
+  </body>
+</html>
