@@ -61,6 +61,18 @@ export const LOCAL_PMTILES_PATH = "/tiles/berlin.pmtiles";
 
 let protocolRegistered = false;
 
+/** Keep enough workers to decode ahead without multiplying low-memory heaps. */
+export function mapWorkerCount(cores: number, memoryGb?: number): number {
+  const coreLimit = Math.max(2, Math.min(Math.floor(cores) - 2, 6));
+  if (memoryGb !== undefined && memoryGb <= 2) {
+    return 2;
+  }
+  if (memoryGb !== undefined && memoryGb <= 4) {
+    return Math.min(coreLimit, 4);
+  }
+  return coreLimit;
+}
+
 /**
  * PMTiles serves a whole city out of one file over HTTP range requests, so the
  * browser only ever pulls the handful of kilobytes it is about to draw. This
@@ -73,13 +85,15 @@ export function registerPmtilesProtocol(): void {
 
   maplibregl.setWorkerUrl(MAPLIBRE_WORKER_URL);
 
-  // Tile decoding is the bottleneck when panning, and it is embarrassingly
-  // parallel. MapLibre defaults to a conservative worker count; on a machine
-  // with cores to spare, using more of them is the difference between tiles
-  // appearing as you arrive and appearing a second later. Two are reserved for
-  // the main thread and the browser itself.
+  // Decoding benefits from parallelism, but every worker retains its own heap.
+  // Reserve cores for rendering and start workers while source detection runs.
   const cores = navigator.hardwareConcurrency ?? 4;
-  maplibregl.setWorkerCount(Math.max(2, Math.min(cores - 2, 12)));
+  const memory =
+    "deviceMemory" in navigator && typeof navigator.deviceMemory === "number"
+      ? navigator.deviceMemory
+      : undefined;
+  maplibregl.setWorkerCount(mapWorkerCount(cores, memory));
+  maplibregl.prewarm();
 
   const protocol = new Protocol({ metadata: true });
   maplibregl.addProtocol("pmtiles", protocol.tile);
@@ -119,24 +133,83 @@ export const LOCAL_SOURCE: TileSource = {
 export async function detectTileSource(
   signal?: AbortSignal
 ): Promise<TileSource> {
+  signal?.throwIfAborted();
+  const controller = new AbortController();
+  const forwardAbort = () => controller.abort(signal?.reason);
+  signal?.addEventListener("abort", forwardAbort, { once: true });
+  const timeout = setTimeout(() => {
+    controller.abort(
+      new DOMException("Local tile probe timed out", "TimeoutError")
+    );
+  }, 3000);
+  let rejectAbort: (() => void) | undefined;
+  // A race also bounds body reads when a server never completes its response.
+  // oxlint-disable-next-line promise/avoid-new
+  const aborted = new Promise<never>((_resolve, reject) => {
+    rejectAbort = () => reject(controller.signal.reason);
+    controller.signal.addEventListener("abort", rejectAbort, { once: true });
+  });
+
   try {
-    const res = await fetch(LOCAL_PMTILES_PATH, {
-      headers: { Range: "bytes=0-15" },
-      signal,
-    });
-
-    // A PMTiles archive starts with the magic bytes "PMTiles" followed by the
-    // spec version. Anything else means we hit an SPA fallback serving HTML.
-    if (res.ok) {
-      const head = new Uint8Array(await res.arrayBuffer());
-      const magic = String.fromCodePoint(...head.slice(0, 7));
-      if (magic === "PMTiles") {
-        return LOCAL_SOURCE;
-      }
-    }
+    return await Promise.race([probeLocalSource(controller.signal), aborted]);
   } catch {
-    // Offline or no extract built - the hosted planet is the sane default.
+    // Cancellation belongs to the caller; only probe failures use the fallback.
+    signal?.throwIfAborted();
+    return OPENFREEMAP_SOURCE;
+  } finally {
+    clearTimeout(timeout);
+    signal?.removeEventListener("abort", forwardAbort);
+    if (rejectAbort) {
+      controller.signal.removeEventListener("abort", rejectAbort);
+    }
   }
+}
 
-  return OPENFREEMAP_SOURCE;
+async function probeLocalSource(signal: AbortSignal): Promise<TileSource> {
+  const response = await fetch(LOCAL_PMTILES_PATH, {
+    headers: { Range: "bytes=0-6" },
+    signal,
+  });
+  const reader = response.body?.getReader();
+  if (!reader) {
+    return OPENFREEMAP_SOURCE;
+  }
+  const cancelBody = async () => {
+    try {
+      await reader.cancel();
+    } catch {
+      // A failed stream cancellation does not affect source selection.
+    }
+  };
+  signal.addEventListener("abort", cancelBody, { once: true });
+
+  try {
+    signal.throwIfAborted();
+    if (!response.ok) {
+      return OPENFREEMAP_SOURCE;
+    }
+    // Some servers ignore Range and stream the entire archive. Stop as soon as
+    // the seven magic bytes arrive, including when split across stream chunks.
+    const magic = new Uint8Array(7);
+    let length = 0;
+    while (length < magic.length) {
+      // Stream chunks must be read in order until the fixed-size header exists.
+      // oxlint-disable-next-line no-await-in-loop
+      const chunk = await reader.read();
+      signal.throwIfAborted();
+      if (chunk.done) {
+        return OPENFREEMAP_SOURCE;
+      }
+      const count = Math.min(chunk.value.length, magic.length - length);
+      magic.set(chunk.value.subarray(0, count), length);
+      length += count;
+    }
+    return String.fromCodePoint(...magic) === "PMTiles"
+      ? LOCAL_SOURCE
+      : OPENFREEMAP_SOURCE;
+  } finally {
+    // Cancellation must not hold up source selection if a server stalls.
+    signal.removeEventListener("abort", cancelBody);
+    void cancelBody();
+  }
 }
