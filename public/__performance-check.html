@@ -119,15 +119,24 @@
           const states = {};
           const canonicalLod = {};
           const parsed = new Set();
+          const activeCanonical = new Map();
           let pending = 0;
           let missingData = 0;
           for (const key of ids) {
             const tile = manager.getTileByID(key);
+            const canonical = canonicalKey(tile);
+            const hasData = tileHasData(tile);
+            if (canonical) {
+              activeCanonical.set(
+                canonical,
+                hasData || activeCanonical.get(canonical) === true
+              );
+            }
             const state = tile?.state ?? "missing";
             states[state] = (states[state] ?? 0) + 1;
             if (["loading", "reloading"].includes(state)) pending += 1;
-            if (!tileHasData(tile)) missingData += 1;
-            else if (canonicalKey(tile)) parsed.add(canonicalKey(tile));
+            if (!hasData) missingData += 1;
+            else if (canonical) parsed.add(canonical);
           }
           for (const key of renderable) {
             const zoom =
@@ -166,16 +175,33 @@
                 );
               let missing = 0;
               let unloaded = 0;
+              let exactIdealMissing = 0;
+              let exactIdealUnloaded = 0;
+              let canonicalFallbackLoaded = 0;
               for (const coordinate of coordinates) {
                 const tile = manager.getTileByID(coordinate.key);
-                if (!tile) missing += 1;
-                if (!tileHasData(tile)) unloaded += 1;
+                const canonical = coordinate.canonical;
+                const canonicalId = `${canonical.z}/${canonical.x}/${canonical.y}`;
+                const exactHasData = tileHasData(tile);
+                const canonicalHasData =
+                  activeCanonical.get(canonicalId) === true;
+                if (!tile) exactIdealMissing += 1;
+                if (!exactHasData) exactIdealUnloaded += 1;
+                if (!tile && !activeCanonical.has(canonicalId)) missing += 1;
+                if (!exactHasData && !canonicalHasData) unloaded += 1;
+                if (!exactHasData && canonicalHasData)
+                  canonicalFallbackLoaded += 1;
               }
               ideal = {
                 available: true,
                 count: coordinates.length,
+                coverageBasis:
+                  "Exact tile key or active canonical z/x/y; out-of-view caches excluded",
                 missing,
                 unloaded,
+                exactIdealMissing,
+                exactIdealUnloaded,
+                canonicalFallbackLoaded,
               };
             } catch (error) {
               ideal = { available: false, error: String(error) };

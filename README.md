@@ -47,7 +47,7 @@ Two findings were counter-intuitive enough to be worth repeating:
 - **Buildings are not the bottleneck.** Moving the extrusion layer from z13 all the way to z16 — from "buildings everywhere" to "almost none" — only bought about 3 fps. **Tile count** is what dominates, because every layer pays for every tile, which is why the LOD knob is worth 2.5× on its own.
 - **A small tile cache is not a performance setting.** Trimming it to 200 tiles made things _slower_, because rotating the camera kept evicting tiles that were about to be needed again and each one had to be re-parsed.
 
-The rendering preset (Performance / Balanced / Quality) in the layers popover controls the LOD falloff, when extrusions start, and antialiasing. Balanced and Performance cap drawing density at one pixel per CSS pixel; Quality uses the display's native density. On a 1.5× display the default shades 56% fewer pixels than the previous 1.5× cap.
+The rendering preset (Performance / Balanced / Quality) in the layers popover controls the LOD falloff, when extrusions start, and antialiasing. The existing resolution, geometry, labels and preset choices are preserved; loading and runtime optimizations do not reduce visual detail.
 
 Startup now prioritizes a complete scene over the earliest possible reveal. A three-second local-source probe overlaps worker startup. The map then has a 27-second preparation budget, with five seconds reserved for restoring and finishing the starting view. It visits nearby positions and bearings behind the loading screen using the same renderer, so its decoded geometry, GPU buffers and shaders can be reused. Camera hashes are only updated after preparation.
 
