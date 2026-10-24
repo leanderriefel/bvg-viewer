@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -18,6 +18,7 @@ import { useTransitStore } from "@/map/transit/store";
 
 import { CloseIcon, NavigateIcon, PlusIcon } from "./icons";
 import { TransitLineBrowser } from "./transit-line-browser";
+import { TransitReplayControls } from "./transit-replay-controls";
 import { TransitVehicleCard } from "./transit-vehicle-card";
 
 const NUMBER = new Intl.NumberFormat("en-GB");
@@ -233,28 +234,32 @@ export function TransitPanel() {
   const { tour } = useMapApi();
   const [expanded, setExpanded] = useState(false);
   const [lineKey, setLineKey] = useState<string | null>(null);
-  const [now, setNow] = useState(0);
+  const now = useTransitStore(
+    (state) => Math.floor(state.clockTime / 1000) * 1000
+  );
+  const mode = useTransitStore((state) => state.mode);
+  const replayStatus = useTransitStore((state) => state.replayStatus);
   const snapshot = useTransitStore((state) => state.snapshot);
   const enabled = useTransitStore((state) => state.enabled);
   const selectedId = useTransitStore((state) => state.selectedId);
   const error = useTransitStore((state) => state.error);
   const setEnabled = useTransitStore((state) => state.setEnabled);
   const selectVehicle = useTransitStore((state) => state.selectVehicle);
-  useEffect(() => {
-    const tick = () => setNow(Date.now());
-    tick();
-    const timer = window.setInterval(tick, 5000);
-    return () => window.clearInterval(timer);
-  }, []);
   const vehicle = snapshot?.vehicles.find(
     (item) =>
       item.id === selectedId && now - item.observedAt <= MAX_VEHICLE_AGE_MS
   );
   const open = !tour.state && (expanded || Boolean(selectedId));
-  const connection = connectionLabel(snapshot, error, now);
+  const connection =
+    mode === "replay"
+      ? { text: "Saved transport replay", live: false }
+      : connectionLabel(snapshot, error, now);
   let connectionTone = "bg-muted-foreground";
   if (enabled) {
     connectionTone = connection.live ? "bg-emerald-500" : "bg-amber-500";
+    if (mode === "replay") {
+      connectionTone = "bg-sky-500";
+    }
   }
   const toggleExpanded = () => {
     tour.exit();
@@ -265,7 +270,7 @@ export function TransitPanel() {
   };
   return (
     <aside
-      aria-label="Live public transport"
+      aria-label="Public transport"
       className="map-transit map-panel pointer-events-auto flex flex-col overflow-hidden"
       data-expanded={open}
     >
@@ -282,7 +287,7 @@ export function TransitPanel() {
         </span>
         <span className="min-w-0 flex-1">
           <span className="block text-[13px] font-semibold tracking-tight">
-            Live transport
+            {mode === "replay" ? "Transport replay" : "Live transport"}
           </span>
           <span className="text-muted-foreground mt-0.5 flex items-center gap-1.5 text-xs">
             <span
@@ -301,56 +306,63 @@ export function TransitPanel() {
           className="min-h-0 overflow-y-auto overscroll-contain"
           id="transit-panel-details"
         >
-          {vehicle ? (
-            <TransitVehicleCard
-              now={now}
-              onBack={() => selectVehicle(null)}
-              vehicle={vehicle}
-            />
-          ) : (
-            <Tabs className="gap-0" defaultValue="lines">
-              <div className="flex items-center gap-4 border-b px-4 pb-3">
-                <TabsList
-                  aria-label="Transport information"
-                  className="h-9 flex-1 rounded-xl"
-                >
-                  <TabsTrigger className="rounded-lg" value="lines">
-                    Lines
-                  </TabsTrigger>
-                  <TabsTrigger className="rounded-lg" value="overview">
-                    Overview
-                  </TabsTrigger>
-                </TabsList>
-              </div>
-              <div className="flex items-center justify-between border-b px-4 py-3">
-                <Label className="text-xs" htmlFor="transit-map-visible">
-                  Show on map
-                </Label>
-                <Switch
-                  checked={enabled}
-                  id="transit-map-visible"
-                  onCheckedChange={setEnabled}
-                />
-              </div>
-              <TabsContent className="mt-0" value="lines">
-                <ModeFilters now={now} />
-                {selectedId && (
-                  <p className="text-muted-foreground px-4 pb-2 text-xs">
-                    That vehicle has left the current feed.
-                  </p>
-                )}
-                <TransitLineBrowser
-                  lineKey={lineKey}
-                  now={now}
-                  onLineChange={setLineKey}
-                />
-              </TabsContent>
-              <TabsContent className="mt-0" value="overview">
-                <NetworkOverview now={now} />
-              </TabsContent>
-            </Tabs>
-          )}
-          <FeedDetails error={error} snapshot={snapshot} />
+          <TransitReplayControls />
+          {(mode === "live" || replayStatus === "ready") &&
+            (vehicle ? (
+              <TransitVehicleCard
+                now={now}
+                onBack={() => selectVehicle(null)}
+                vehicle={vehicle}
+              />
+            ) : (
+              <Tabs className="gap-0" defaultValue="lines">
+                <div className="flex items-center gap-4 border-b px-4 pb-3">
+                  <TabsList
+                    aria-label="Transport information"
+                    className="h-9 flex-1 rounded-xl"
+                  >
+                    <TabsTrigger className="rounded-lg" value="lines">
+                      Lines
+                    </TabsTrigger>
+                    <TabsTrigger className="rounded-lg" value="overview">
+                      Overview
+                    </TabsTrigger>
+                  </TabsList>
+                </div>
+                <div className="flex items-center justify-between border-b px-4 py-3">
+                  <Label className="text-xs" htmlFor="transit-map-visible">
+                    Show on map
+                  </Label>
+                  <Switch
+                    checked={enabled}
+                    id="transit-map-visible"
+                    onCheckedChange={setEnabled}
+                  />
+                </div>
+                <TabsContent className="mt-0" value="lines">
+                  <ModeFilters now={now} />
+                  {selectedId && (
+                    <p className="text-muted-foreground px-4 pb-2 text-xs">
+                      {mode === "replay"
+                        ? "That vehicle is absent at this saved time."
+                        : "That vehicle has left the current feed."}
+                    </p>
+                  )}
+                  <TransitLineBrowser
+                    lineKey={lineKey}
+                    now={now}
+                    onLineChange={setLineKey}
+                  />
+                </TabsContent>
+                <TabsContent className="mt-0" value="overview">
+                  <NetworkOverview now={now} />
+                </TabsContent>
+              </Tabs>
+            ))}
+          <FeedDetails
+            error={mode === "live" ? error : null}
+            snapshot={snapshot}
+          />
         </div>
       )}
     </aside>

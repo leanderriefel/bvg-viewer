@@ -60,12 +60,14 @@ export function TransitVehicleCard({
   const stopFollowing = useTransitStore((state) => state.stopFollowing);
   const selectedRoute = useTransitStore((state) => state.selectedRoute);
   const routeStatus = useTransitStore((state) => state.routeStatus);
+  const mode = useTransitStore((state) => state.mode);
   const following = followedId === vehicle.id;
   const observationAge = Math.max(
     0,
     Math.floor((now - vehicle.observedAt) / 1000)
   );
-  let routeDescription = "Movement forecast";
+  let routeDescription =
+    mode === "replay" ? "Saved movement forecast" : "Movement forecast";
   if (routeStatus === "loading") {
     routeDescription = "Loading route…";
   }
@@ -73,7 +75,7 @@ export function TransitVehicleCard({
     routeDescription = `${selectedRoute.stops.length} stops · full route`;
   }
   const showOnMap = () => {
-    const pose = sampleVehicle(vehicle, Date.now());
+    const pose = sampleVehicle(vehicle, useTransitStore.getState().clockTime);
     flyTo({ center: pose?.coordinates ?? vehicle.location, zoom: 16 });
   };
   return (

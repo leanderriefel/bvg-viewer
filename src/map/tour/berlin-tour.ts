@@ -79,6 +79,7 @@ function vehicleAvailable(
   pose?: TransitPose
 ): boolean {
   return Boolean(
+    transit.mode === "live" &&
     transit.enabled &&
     transit.snapshot?.status !== "offline" &&
     transit.filters[vehicle.product] &&
@@ -354,6 +355,9 @@ export function createBerlinTour(
     start() {
       if (disposed || status !== "idle") {
         return;
+      }
+      if (useTransitStore.getState().mode === "replay") {
+        useTransitStore.getState().backToLive();
       }
       useTransitStore.getState().stopFollowing();
       useMapStore.getState().setSelection(null);

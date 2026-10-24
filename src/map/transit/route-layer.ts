@@ -136,7 +136,9 @@ export function bindTransitRoute(map: MapLibreMap): () => void {
       (item) => item.id === activeId
     );
     const route =
-      state.selectedRoute?.tripId === activeId ? state.selectedRoute : null;
+      state.mode === "live" && state.selectedRoute?.tripId === activeId
+        ? state.selectedRoute
+        : null;
     const visible =
       state.enabled && (!vehicle || state.filters[vehicle.product]);
     const key = `${activeId}:${visible}:${vehicle?.product}:${route ? "full" : vehicle?.observedAt}`;

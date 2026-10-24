@@ -78,7 +78,11 @@ export function startVehicleFollow(map: MapLibreMap): () => void {
     const vehicle = state.snapshot?.vehicles.find(
       (candidate) => candidate.id === id
     );
-    const position = vehicle && sampleVehicle(vehicle, Date.now(), pose);
+    // Keep the target while the next replay snapshot is loading.
+    if (state.mode === "replay" && state.replayStatus === "loading") {
+      return;
+    }
+    const position = vehicle && sampleVehicle(vehicle, state.clockTime, pose);
     if (!position) {
       state.stopFollowing();
       return;
