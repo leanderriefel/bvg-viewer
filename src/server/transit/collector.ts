@@ -11,7 +11,7 @@ import type { TransitStorage } from "./storage";
 
 export const TRANSIT_POLL_INTERVAL_MS = 30_000;
 export const REQUEST_SPACING_MS = 1000;
-export const RADAR_RESULTS = 1024;
+export const RADAR_RESULTS = 512;
 
 /** Small areas avoid the city-wide endpoint silently truncating at its result cap. */
 export function createRadarCells(bounds: BBox): BBox[] {
@@ -360,7 +360,7 @@ export class TransitCollector {
       east: String(east),
       north: String(north),
       duration: "120",
-      frames: "120",
+      frames: "30",
       polylines: "true",
       results: String(RADAR_RESULTS),
       pretty: "false",

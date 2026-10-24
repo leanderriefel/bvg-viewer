@@ -148,7 +148,7 @@ describe("shared Berlin transit collection", () => {
     expect(request).toHaveBeenCalledTimes(2);
     const [radarUrl] = requestedUrls;
     expect(radarUrl.searchParams.get("duration")).toBe("120");
-    expect(radarUrl.searchParams.get("frames")).toBe("120");
+    expect(radarUrl.searchParams.get("frames")).toBe("30");
     expect(storage.save).toHaveBeenCalledTimes(1);
   });
 
