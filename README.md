@@ -116,6 +116,10 @@ Add `?debug` to the URL in a production build to expose the MapLibre instance as
 
 MapLibre's stylesheet is imported into a CSS layer in `src/styles.css`. Tailwind v4 puts every utility in `@layer utilities`, and unlayered CSS outranks any layer, so an unlayered `.maplibregl-map { position: relative }` would beat `.absolute` and collapse the map container to zero height.
 
+## Vehicle models
+
+The [Berlin transit vehicle library](assets/vehicles/README.md) contains 49 original low-poly GLBs for Three.js, an editable Blender source scene, and a catalog covering the 266 observed services across seven transport modes. Open `/models/vehicles/` while the app is running to browse the models and their researched or representative service assignments. Rebuild from the running Blender Lab add-on with `vp run vehicles:build`.
+
 ## Attribution
 
 Map data © OpenStreetMap contributors, licensed under the [ODbL](https://www.openstreetmap.org/copyright). Vector tiles use the OpenMapTiles schema (CC-BY). Geocoding by [Photon](https://photon.komoot.io).

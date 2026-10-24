@@ -1,0 +1,13 @@
+Berlin transit vehicle assets
+
+The original vehicle geometry, generated GLB files, Blender authoring scene and
+preview renders in this collection are dedicated to the public domain under
+Creative Commons CC0 1.0 Universal.
+
+To the extent possible under law, the authors have waived all copyright and
+related or neighboring rights in those original assets.
+
+https://creativecommons.org/publicdomain/zero/1.0/
+
+Reference links identify the real vehicle prototypes. No third-party models,
+photographs, logos or texture images are included in the generated assets.

@@ -15,6 +15,7 @@
     "fix": "vp check --fix",
     "typecheck": "tsc --noEmit",
     "glyphs:fetch": "node scripts/fetch-glyphs.mjs",
+    "vehicles:build": "node scripts/build-vehicles.mjs",
     "tiles:build": "node scripts/build-tiles.mjs",
     "prepare": "vp config"
   },

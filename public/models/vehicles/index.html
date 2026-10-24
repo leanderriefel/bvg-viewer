@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f6f5ef" />
+    <meta
+      name="description"
+      content="Explore and download a collection of Berlin transit vehicles as real-scale GLB models for Three.js."
+    />
+    <title>Berlin in Motion · Vehicle library</title>
+    <link rel="stylesheet" href="./gallery.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+        }
+      }
+    </script>
+    <script type="module" src="./gallery.js"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#model-details">Skip to selected vehicle</a>
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="Berlin in 3D home"
+        ><span class="brand-mark" aria-hidden="true">B<span>3D</span></span
+        ><span
+          >BERLIN IN 3D<span class="brand-subtitle"
+            >THE VEHICLE COLLECTION</span
+          ></span
+        ></a
+      >
+      <span class="header-note">Built for the city. Ready for your scene.</span>
+      <a class="text-link" href="./catalog.json" download
+        >Get catalog <span aria-hidden="true">↗</span></a
+      >
+    </header>
+    <main>
+      <section class="intro" aria-labelledby="page-title">
+        <div>
+          <p class="eyebrow">
+            <span class="status-dot" aria-hidden="true"></span> BERLIN TRANSIT /
+            3D ASSET LIBRARY
+          </p>
+          <h1 id="page-title">Berlin, in motion<span>.</span></h1>
+          <p class="intro-copy">
+            The vehicles that move the city, ready for your next scene.<br />Explore
+            the fleet. Find your line. Download a GLB.
+          </p>
+        </div>
+        <div class="collection-stats" aria-label="Collection statistics">
+          <div>
+            <strong id="total-models">—</strong><span>vehicle models</span>
+          </div>
+          <div>
+            <strong id="total-modes">7</strong><span>transport modes</span>
+          </div>
+          <div><strong>1:1</strong><span>real-world scale</span></div>
+        </div>
+      </section>
+      <nav
+        class="mode-filters"
+        aria-label="Filter by transport mode"
+        id="mode-filters"
+      ></nav>
+      <div class="workspace">
+        <aside class="library" aria-label="Vehicle library">
+          <div class="library-heading">
+            <h2>The fleet</h2>
+            <span id="result-count" class="count">—</span>
+          </div>
+          <div class="search-wrap">
+            <span aria-hidden="true">⌕</span
+            ><label class="sr-only" for="asset-search"
+              >Search vehicles or service lines</label
+            ><input
+              id="asset-search"
+              type="search"
+              placeholder="Find a vehicle or line…"
+              autocomplete="off"
+            /><kbd aria-hidden="true">/</kbd>
+          </div>
+          <p class="search-hint">Try “U5”, “M1”, or “double decker”</p>
+          <div id="library-status" class="library-status" role="status">
+            Loading the collection…
+          </div>
+          <div id="service-results" class="service-results" hidden>
+            <h3>Matching lines</h3>
+            <div id="service-list"></div>
+          </div>
+          <div
+            id="asset-list"
+            class="asset-list"
+            aria-label="Vehicle models"
+          ></div>
+          <p class="library-footnote">
+            Service assignments indicate a vehicle family or representative
+            model. Fleets can vary.
+          </p>
+        </aside>
+        <section
+          class="model-panel"
+          id="model-details"
+          aria-labelledby="model-name"
+          tabindex="-1"
+        >
+          <div class="model-heading">
+            <div>
+              <p class="eyebrow" id="model-classification">THE COLLECTION</p>
+              <h2 id="model-name">Choose a vehicle</h2>
+              <p id="model-family" class="model-family">
+                A closer look at Berlin’s everyday icons.
+              </p>
+            </div>
+            <a class="download-button" id="download-model" hidden download
+              ><span aria-hidden="true">↓</span> Download GLB</a
+            >
+          </div>
+          <div class="stage" id="stage">
+            <canvas
+              id="model-canvas"
+              tabindex="0"
+              aria-label="Interactive 3D vehicle. Use arrow keys to orbit, plus or minus to zoom, and Home to reset."
+            ></canvas>
+            <div class="stage-label">
+              <span class="status-dot" aria-hidden="true"></span> LIVE 3D
+              <span class="stage-divider">/</span> METERS · Y UP
+            </div>
+            <div class="stage-message" id="stage-message" role="status">
+              <span class="loading-mark" aria-hidden="true"></span>
+              <p>Preparing your view…</p>
+              <button type="button" id="retry-model" hidden>Try again</button>
+            </div>
+            <div class="stage-bottom">
+              <p class="orbit-hint">
+                <span aria-hidden="true">↔</span> Drag to orbit
+                <span class="hint-separator">·</span> Scroll to zoom
+              </p>
+              <div class="stage-controls">
+                <button
+                  type="button"
+                  id="rotate-model"
+                  aria-label="Turn on automatic rotation"
+                  aria-pressed="false"
+                  disabled
+                >
+                  ↻ <span>Rotate</span></button
+                ><button type="button" id="reset-camera" disabled>
+                  <span aria-hidden="true">⌖</span> <span>Reset view</span>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div id="model-information" hidden>
+            <dl class="model-facts" id="model-facts"></dl>
+            <div class="detail-columns">
+              <section class="model-description">
+                <h3>About this model</h3>
+                <p id="model-notes"></p>
+                <p class="coordinate-note">
+                  GLB / glTF 2.0 · 1 unit = 1 meter<br />Ground-centered origin
+                  · +Y up · +Z forward
+                </p>
+                <div id="model-sources" class="model-sources"></div>
+              </section>
+              <section class="service-assignments">
+                <h3>
+                  On the network <span id="service-count" class="count"></span>
+                </h3>
+                <p class="section-caption">
+                  Lines using this family or a representative model.
+                </p>
+                <div id="model-services" class="model-services"></div>
+              </section>
+            </div>
+          </div>
+        </section>
+      </div>
+      <footer class="site-footer">
+        <span
+          >BERLIN IN 3D <span aria-hidden="true">/</span> VEHICLE
+          COLLECTION</span
+        >
+        <p>
+          Independent visual models. Service mappings are indicative; see the
+          catalog sources and notes.
+        </p>
+        <span id="catalog-date"></span>
+      </footer>
+    </main>
+    <noscript
+      ><p class="noscript">
+        Enable JavaScript to explore the 3D collection. You can also
+        <a href="./catalog.json">open the catalog</a> directly.
+      </p></noscript
+    >
+  </body>
+</html>
