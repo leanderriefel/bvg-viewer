@@ -87,7 +87,6 @@ export function createBuildingFocus(map: MapLibreMap) {
         {
           ...building,
           id: FOCUS_LAYER_ID,
-          minzoom: FOCUS_MIN_ZOOM,
           filter: inside,
           paint: { ...building.paint, "fill-extrusion-opacity": 0.24 },
         },

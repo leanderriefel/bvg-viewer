@@ -13,6 +13,7 @@ import { useVehicleFollow } from "@/map/transit/use-vehicle-follow";
 import { useVehicleRoute } from "@/map/transit/use-vehicle-route";
 import {
   useCameraSync,
+  useDistanceHaze,
   useFeatureInteraction,
   useMapInstance,
   useMapPreparation,
@@ -72,6 +73,7 @@ export function MapCanvas({
   const ready = mapReady && arrived;
 
   useRestyle(map, style, appliedStyleRef);
+  useDistanceHaze(map, view);
   useViewMode(map, ready, view);
   useMapEntrance(map, entered && startupReady, onArrival);
   useCameraSync(map, ready);

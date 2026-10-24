@@ -150,6 +150,151 @@ body {
     @apply font-sans;
   }
 }
+
+@layer components {
+  .map-panel {
+    border: 1px solid color-mix(in oklab, var(--border) 85%, transparent);
+    border-radius: 16px;
+    background: color-mix(in oklab, var(--card) 97%, transparent);
+    color: var(--card-foreground);
+    box-shadow:
+      0 4px 24px -8px rgb(0 0 0 / 16%),
+      0 1px 3px rgb(0 0 0 / 4%);
+    backdrop-filter: blur(16px);
+  }
+}
+
+.map-interface {
+  --map-edge: 16px;
+  --map-top: max(var(--map-edge), env(safe-area-inset-top));
+  --map-bottom: max(32px, calc(env(safe-area-inset-bottom) + 16px));
+}
+
+.map-navigator,
+.map-view-controls,
+.map-feature,
+.map-camera-controls,
+.map-diagnostics,
+.map-transit {
+  position: absolute;
+}
+
+.map-navigator {
+  top: var(--map-top);
+  left: max(var(--map-edge), env(safe-area-inset-left));
+  width: 296px;
+}
+
+.map-view-controls {
+  top: var(--map-top);
+  right: max(var(--map-edge), env(safe-area-inset-right));
+}
+
+.map-camera-controls {
+  top: calc(var(--map-top) + 48px);
+  right: max(var(--map-edge), env(safe-area-inset-right));
+}
+
+.map-feature {
+  top: calc(var(--map-top) + 112px);
+  bottom: calc(var(--map-bottom) + 52px);
+  left: max(var(--map-edge), env(safe-area-inset-left));
+  z-index: 10;
+  width: 296px;
+}
+
+.map-diagnostics {
+  bottom: var(--map-bottom);
+  left: max(var(--map-edge), env(safe-area-inset-left));
+}
+
+.map-transit {
+  right: max(var(--map-edge), env(safe-area-inset-right));
+  bottom: var(--map-bottom);
+  z-index: 20;
+  width: 304px;
+  max-height: min(
+    560px,
+    calc(100dvh - var(--map-top) - var(--map-bottom) - 60px)
+  );
+}
+
+.map-panel,
+.map-panel * {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+@media (width >= 900px) {
+  .map-interface:has(.map-transit[data-expanded="true"]) .map-camera-controls {
+    right: calc(var(--map-edge) + 316px);
+  }
+}
+
+@media (640px <= width < 900px) {
+  .map-interface:has(.map-transit[data-expanded="true"]) .map-camera-controls {
+    visibility: hidden;
+  }
+}
+
+@media (width < 640px) {
+  .map-interface {
+    --map-edge: 12px;
+    --map-bottom: max(30px, calc(env(safe-area-inset-bottom) + 12px));
+  }
+
+  .map-navigator,
+  .map-transit {
+    width: auto;
+    right: max(var(--map-edge), env(safe-area-inset-right));
+    left: max(var(--map-edge), env(safe-area-inset-left));
+  }
+
+  .map-view-controls {
+    top: calc(var(--map-top) + 112px);
+  }
+
+  .map-camera-controls {
+    top: calc(var(--map-top) + 160px);
+  }
+
+  .map-feature {
+    width: auto;
+    right: calc(var(--map-edge) + 60px);
+    bottom: calc(var(--map-bottom) + 140px);
+  }
+
+  .map-interface[data-selection="true"] .map-view-controls {
+    visibility: hidden;
+  }
+
+  .map-diagnostics {
+    bottom: calc(var(--map-bottom) + 88px);
+  }
+
+  .map-transit {
+    max-height: min(
+      65dvh,
+      calc(100dvh - var(--map-top) - var(--map-bottom) - 112px)
+    );
+  }
+
+  .map-interface:has(.map-transit[data-expanded="true"])
+    :is(
+      .map-diagnostics,
+      .map-view-controls,
+      .map-camera-controls,
+      .map-feature
+    ) {
+    visibility: hidden;
+  }
+}
+
+@media (height < 600px) and (width < 640px) {
+  .map-transit {
+    max-height: calc(100dvh - var(--map-top) - var(--map-bottom));
+  }
+}
 /* --- map surface --------------------------------------------------------- */
 
 html,
@@ -180,6 +325,16 @@ body {
 
 .maplibregl-canvas:focus {
   outline: none;
+}
+
+/* A cached gradient softens far-away tile changes; no blur or map render pass.
+   Keep these dimensions in sync with distance-haze.ts's horizon calculation. */
+.map-distance-haze {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 42%;
+  pointer-events: none;
+  contain: strict;
 }
 
 /* --- search pin ---------------------------------------------------------- */
