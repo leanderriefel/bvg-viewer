@@ -117,18 +117,20 @@ export function SearchCommand() {
     <>
       <Button
         aria-label="Search Berlin"
-        className="bg-card/80 text-muted-foreground h-10 w-full justify-start gap-2 rounded-xl px-3 shadow-sm backdrop-blur-md sm:w-72"
+        aria-haspopup="dialog"
+        className="bg-muted/65 text-muted-foreground hover:bg-muted h-9 w-full justify-start gap-2 rounded-lg border-transparent px-2.5 shadow-none"
         onClick={() => setOpen(true)}
         variant="outline"
       >
-        <SearchIcon size={16} />
-        <span className="truncate text-sm">Search Berlin…</span>
-        <kbd className="bg-muted text-muted-foreground ml-auto hidden rounded border px-1.5 py-0.5 font-mono text-[10px] sm:inline">
-          ⌘K
+        <SearchIcon size={14} />
+        <span className="truncate text-xs">Search places and addresses</span>
+        <kbd className="bg-background/80 text-muted-foreground ml-auto rounded border px-1.5 py-0.5 font-mono text-[10px]">
+          /
         </kbd>
       </Button>
 
       <CommandDialog
+        className="overflow-hidden rounded-2xl border-0 shadow-xl"
         description="Find a landmark, street or house number"
         onOpenChange={setOpen}
         open={open}
