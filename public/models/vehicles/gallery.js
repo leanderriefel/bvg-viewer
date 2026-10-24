@@ -1,11 +1,11 @@
 const MODES = {
-  "s-bahn": { label: "S-Bahn", symbol: "S", color: "#42864b" },
-  "u-bahn": { label: "U-Bahn", symbol: "U", color: "#3476a6" },
-  tram: { label: "Tram", symbol: "T", color: "#be5148" },
-  bus: { label: "Bus", symbol: "B", color: "#9b688c" },
-  regional: { label: "Regional", symbol: "R", color: "#b84c42" },
-  "long-distance": { label: "Long-distance", symbol: "IC", color: "#686d66" },
-  ferry: { label: "Ferry", symbol: "F", color: "#4f99a3" },
+  "s-bahn": { label: "S-Bahn", symbol: "S", color: "#168345" },
+  "u-bahn": { label: "U-Bahn", symbol: "U", color: "#1767ad" },
+  tram: { label: "Tram", symbol: "T", color: "#ce313f" },
+  bus: { label: "Bus", symbol: "B", color: "#a13a90" },
+  regional: { label: "Regional", symbol: "R", color: "#e06e21" },
+  "long-distance": { label: "Long-distance", symbol: "IC", color: "#5e56b6" },
+  ferry: { label: "Ferry", symbol: "F", color: "#168ba2" },
 };
 const numberFormat = new Intl.NumberFormat("en-GB");
 const catalogUrl = new URL("catalog.json", import.meta.url);
