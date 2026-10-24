@@ -1,0 +1,5 @@
+Original Berlin transit vehicle geometry, GLBs and preview renders: CC0 1.0.
+https://creativecommons.org/publicdomain/zero/1.0/
+
+See assets/vehicles/README.md in the source repository for the construction,
+modeling approximations, reference sources and the service-mapping contract.

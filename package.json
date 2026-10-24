@@ -15,6 +15,7 @@
     "fix": "vp check --fix",
     "typecheck": "tsc --noEmit",
     "glyphs:fetch": "node scripts/fetch-glyphs.mjs",
+    "vehicles:build": "node scripts/build-vehicles.mjs",
     "tiles:build": "node scripts/build-tiles.mjs",
     "prepare": "vp config"
   },
@@ -42,6 +43,7 @@
     "sonner": "^2.0.8",
     "tailwind-merge": "^3.7.0",
     "tailwindcss": "^4.3.3",
+    "three": "0.180.0",
     "tw-animate-css": "^1.4.0",
     "vgpu": "^0.6.0",
     "zustand": "^5.0.16"
@@ -53,6 +55,7 @@
     "@types/node": "^26.6.5",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "@types/three": "0.180.0",
     "@vitejs/plugin-react": "^6.1.2",
     "oxlint-plugin-react-doctor": "^0.9.18",
     "typescript": "^7.0.2",
